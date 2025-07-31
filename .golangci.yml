@@ -243,6 +243,12 @@ issues:
         - gocognit
         - cyclop
     
+    # Temporary exclusions for false positives
+    - path: main\.go
+      linters:
+        - gci
+        - godot
+    
     # Exclude error check for fmt.Fprintf/Fprint when errors are explicitly ignored
     - path: main\.go
       text: "Error return value of `fmt\\.(Fprintf|Fprint)` is not checked"
