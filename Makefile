@@ -217,7 +217,8 @@ migrate-create:
 install-tools:
 	@echo "$(COLOR_BLUE)Installing development tools...$(COLOR_RESET)"
 	@go install github.com/air-verse/air@latest
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@echo "$(COLOR_BLUE)Installing golangci-lint via official installer...$(COLOR_RESET)"
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin
 	@go install golang.org/x/tools/cmd/goimports@latest
 	@go install github.com/vektra/mockery/v2@latest
 	@go install github.com/swaggo/swag/cmd/swag@latest

@@ -45,6 +45,75 @@ func TestHandleHealth(t *testing.T) {
 	}
 }
 
+// Test helper functions to reduce complexity
+func unmarshalJSON(t *testing.T, data []byte, v interface{}) {
+	t.Helper()
+	if err := json.Unmarshal(data, v); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+}
+
+func assertErrorResponse(t *testing.T, body []byte) {
+	t.Helper()
+	var resp map[string]interface{}
+	unmarshalJSON(t, body, &resp)
+	if _, ok := resp["error"]; !ok {
+		t.Error("Response should contain error field")
+	}
+}
+
+func assertValidationError(t *testing.T, body []byte, expectedField string) {
+	t.Helper()
+	var resp map[string]interface{}
+	unmarshalJSON(t, body, &resp)
+
+	assertErrorResponse(t, body)
+
+	if details, ok := resp["details"].(map[string]interface{}); ok {
+		if _, hasField := details[expectedField]; !hasField {
+			t.Errorf("Validation error should contain %s field", expectedField)
+		}
+	} else {
+		t.Error("Response should contain details field with validation errors")
+	}
+}
+
+func assertURLResponse(t *testing.T, body []byte, expectedOriginalURL, expectedAlias string) {
+	t.Helper()
+	var resp URLResponse
+	unmarshalJSON(t, body, &resp)
+
+	if resp.OriginalURL != expectedOriginalURL {
+		t.Errorf("Wrong original URL: got %v want %v", resp.OriginalURL, expectedOriginalURL)
+	}
+
+	if expectedAlias != "" {
+		assertCustomAlias(t, resp, expectedAlias)
+	} else {
+		assertGeneratedAlias(t, resp)
+	}
+}
+
+func assertCustomAlias(t *testing.T, resp URLResponse, expectedAlias string) {
+	t.Helper()
+	if resp.ShortCode != expectedAlias {
+		t.Errorf("Wrong short code: got %v want %v", resp.ShortCode, expectedAlias)
+	}
+	if resp.ShortURL != "http://localhost:8080/"+expectedAlias {
+		t.Errorf("Wrong short URL: got %v want %v", resp.ShortURL, "http://localhost:8080/"+expectedAlias)
+	}
+}
+
+func assertGeneratedAlias(t *testing.T, resp URLResponse) {
+	t.Helper()
+	if resp.ShortCode == "" {
+		t.Error("Short code should not be empty")
+	}
+	if !strings.HasPrefix(resp.ShortURL, "http://localhost:8080/") {
+		t.Errorf("Short URL should start with http://localhost:8080/, got %v", resp.ShortURL)
+	}
+}
+
 func TestHandleShorten(t *testing.T) {
 	// Reset store for testing
 	store = &URLStore{
@@ -62,20 +131,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `{"url": "https://example.com"}`,
 			expectedStatus: http.StatusCreated,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp URLResponse
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if resp.OriginalURL != "https://example.com" {
-					t.Errorf("Wrong original URL: got %v want %v", resp.OriginalURL, "https://example.com")
-				}
-				if resp.ShortCode == "" {
-					t.Error("Short code should not be empty")
-				}
-				if !strings.HasPrefix(resp.ShortURL, "http://localhost:8080/") {
-					t.Errorf("Short URL should start with http://localhost:8080/, got %v", resp.ShortURL)
-				}
+				assertURLResponse(t, body, "https://example.com", "")
 			},
 		},
 		{
@@ -83,17 +139,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `{"url": "https://example.com", "customAlias": "myalias"}`,
 			expectedStatus: http.StatusCreated,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp URLResponse
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if resp.ShortCode != "myalias" {
-					t.Errorf("Wrong short code: got %v want %v", resp.ShortCode, "myalias")
-				}
-				if resp.ShortURL != "http://localhost:8080/myalias" {
-					t.Errorf("Wrong short URL: got %v want %v", resp.ShortURL, "http://localhost:8080/myalias")
-				}
+				assertURLResponse(t, body, "https://example.com", "myalias")
 			},
 		},
 		{
@@ -101,14 +147,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `{"url": ""}`,
 			expectedStatus: http.StatusBadRequest,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp map[string]any
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if _, ok := resp["error"]; !ok {
-					t.Error("Response should contain error field")
-				}
+				assertErrorResponse(t, body)
 			},
 		},
 		{
@@ -116,19 +155,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `{"url": "not-a-valid-url"}`,
 			expectedStatus: http.StatusBadRequest,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp map[string]any
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if _, ok := resp["error"]; !ok {
-					t.Error("Response should contain error field")
-				}
-				if details, ok := resp["details"].(map[string]any); ok {
-					if _, hasURL := details["URL"]; !hasURL {
-						t.Error("Validation error should contain URL field")
-					}
-				}
+				assertValidationError(t, body, "URL")
 			},
 		},
 		{
@@ -136,19 +163,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `{"url": "https://example.com", "customAlias": "ab"}`,
 			expectedStatus: http.StatusBadRequest,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp map[string]any
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if _, ok := resp["error"]; !ok {
-					t.Error("Response should contain error field")
-				}
-				if details, ok := resp["details"].(map[string]any); ok {
-					if _, hasAlias := details["CustomAlias"]; !hasAlias {
-						t.Error("Validation error should contain CustomAlias field")
-					}
-				}
+				assertValidationError(t, body, "CustomAlias")
 			},
 		},
 		{
@@ -156,14 +171,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `{"url": "https://example.com", "customAlias": "my-alias!"}`,
 			expectedStatus: http.StatusBadRequest,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp map[string]any
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if _, ok := resp["error"]; !ok {
-					t.Error("Response should contain error field")
-				}
+				assertErrorResponse(t, body)
 			},
 		},
 		{
@@ -171,14 +179,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `invalid json`,
 			expectedStatus: http.StatusBadRequest,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp map[string]any
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if _, ok := resp["error"]; !ok {
-					t.Error("Response should contain error field")
-				}
+				assertErrorResponse(t, body)
 			},
 		},
 		{
@@ -186,14 +187,7 @@ func TestHandleShorten(t *testing.T) {
 			requestBody:    `{"url": "https://example2.com", "customAlias": "myalias"}`,
 			expectedStatus: http.StatusConflict,
 			checkResponse: func(t *testing.T, body []byte) {
-				t.Helper()
-				var resp map[string]any
-				if err := json.Unmarshal(body, &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
-				if _, ok := resp["error"]; !ok {
-					t.Error("Response should contain error field")
-				}
+				assertErrorResponse(t, body)
 			},
 		},
 	}
