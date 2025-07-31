@@ -155,7 +155,7 @@ func handleRedoc(w http.ResponseWriter, _ *http.Request) {
     <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
 </body>
 </html>`
-	w.Write([]byte(redocHTML)) //nolint:errcheck // Writing to ResponseWriter rarely fails
+	_, _ = w.Write([]byte(redocHTML))
 }
 
 // handleShorten handles the URL shortening endpoint.
@@ -178,36 +178,9 @@ func handleShorten(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validate.Struct(req); err != nil {
-		var validationErrors validator.ValidationErrors
-		if !errors.As(err, &validationErrors) {
+		if !handleValidationError(w, err) {
 			respondWithError(w, http.StatusBadRequest, "Invalid request")
-			return
 		}
-
-		errorMessages := make(map[string]string)
-
-		for _, e := range validationErrors {
-			field := e.Field()
-			switch e.Tag() {
-			case "required":
-				errorMessages[field] = fmt.Sprintf("%s is required", field)
-			case "url":
-				errorMessages[field] = fmt.Sprintf("%s must be a valid URL", field)
-			case "alphanum":
-				errorMessages[field] = fmt.Sprintf("%s must contain only alphanumeric characters", field)
-			case "min":
-				errorMessages[field] = fmt.Sprintf("%s must be at least %s characters long", field, e.Param())
-			case "max":
-				errorMessages[field] = fmt.Sprintf("%s must be at most %s characters long", field, e.Param())
-			default:
-				errorMessages[field] = fmt.Sprintf("%s is invalid", field)
-			}
-		}
-
-		respondWithJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error":   "Validation failed",
-			"details": errorMessages,
-		})
 		return
 	}
 
@@ -296,4 +269,38 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 		},
 		"timestamp": time.Now().Format(time.RFC3339),
 	})
+}
+
+// handleValidationError processes validation errors and responds with a structured error message
+// Returns true if the error was a validation error and was handled, false otherwise
+func handleValidationError(w http.ResponseWriter, err error) bool {
+	var validationErrors validator.ValidationErrors
+	if !errors.As(err, &validationErrors) {
+		return false
+	}
+
+	errorMessages := make(map[string]string)
+	for _, e := range validationErrors {
+		field := e.Field()
+		switch e.Tag() {
+		case "required":
+			errorMessages[field] = fmt.Sprintf("%s is required", field)
+		case "url":
+			errorMessages[field] = fmt.Sprintf("%s must be a valid URL", field)
+		case "alphanum":
+			errorMessages[field] = fmt.Sprintf("%s must contain only alphanumeric characters", field)
+		case "min":
+			errorMessages[field] = fmt.Sprintf("%s must be at least %s characters long", field, e.Param())
+		case "max":
+			errorMessages[field] = fmt.Sprintf("%s must be at most %s characters long", field, e.Param())
+		default:
+			errorMessages[field] = fmt.Sprintf("%s is invalid", field)
+		}
+	}
+
+	respondWithJSON(w, http.StatusBadRequest, map[string]interface{}{
+		"error":   "Validation failed",
+		"details": errorMessages,
+	})
+	return true
 }
