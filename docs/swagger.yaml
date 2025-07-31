@@ -1,0 +1,123 @@
+basePath: /
+definitions:
+  main.CreateURLRequest:
+    properties:
+      customAlias:
+        example: mylink
+        maxLength: 20
+        minLength: 3
+        type: string
+      url:
+        example: https://example.com/very/long/url
+        type: string
+    required:
+    - url
+    type: object
+  main.ErrorResponse:
+    properties:
+      error:
+        additionalProperties:
+          type: string
+        type: object
+      timestamp:
+        example: "2024-01-31T12:00:00Z"
+        type: string
+    type: object
+  main.URLResponse:
+    properties:
+      createdAt:
+        example: "2024-01-31T12:00:00Z"
+        type: string
+      originalUrl:
+        example: https://example.com
+        type: string
+      shortCode:
+        example: abc123
+        type: string
+      shortUrl:
+        example: http://localhost:8080/abc123
+        type: string
+    type: object
+  main.ValidationErrorResponse:
+    properties:
+      details:
+        additionalProperties:
+          type: string
+        type: object
+      error:
+        example: Validation failed
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: A fast and simple URL shortener service
+  title: Dove URL Shortener API
+  version: "1.0"
+paths:
+  /{shortCode}:
+    get:
+      description: Redirect to the original URL using the short code
+      parameters:
+      - description: Short code
+        in: path
+        name: shortCode
+        required: true
+        type: string
+      responses:
+        "301":
+          description: Redirect to original URL
+        "404":
+          description: Short URL not found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Redirect to original URL
+      tags:
+      - urls
+  /health:
+    get:
+      description: Check if the service is running
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Health check endpoint
+      tags:
+      - health
+  /shorten:
+    post:
+      consumes:
+      - application/json
+      description: Create a shortened URL from a long URL
+      parameters:
+      - description: URL to shorten
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateURLRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Successfully created short URL
+          schema:
+            $ref: '#/definitions/main.URLResponse'
+        "400":
+          description: Invalid request or validation error
+          schema:
+            $ref: '#/definitions/main.ValidationErrorResponse'
+        "409":
+          description: Short code already exists
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Create a short URL
+      tags:
+      - urls
+schemes:
+- http
+- https
+swagger: "2.0"

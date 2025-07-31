@@ -1,4 +1,4 @@
-.PHONY: help dev test lint build clean docker-dev docker-build install-tools
+.PHONY: help dev test lint build clean docker-dev docker-build install-tools swagger swagger-fmt
 
 # Default target
 DEFAULT_GOAL := help
@@ -52,6 +52,10 @@ help:
 	@echo "  $(COLOR_GREEN)vet$(COLOR_RESET)             Run go vet"
 	@echo "  $(COLOR_GREEN)mod-tidy$(COLOR_RESET)        Tidy go modules"
 	@echo "  $(COLOR_GREEN)mod-verify$(COLOR_RESET)      Verify go modules"
+	@echo ""
+	@echo "$(COLOR_BOLD)Documentation:$(COLOR_RESET)"
+	@echo "  $(COLOR_GREEN)swagger$(COLOR_RESET)         Generate Swagger documentation"
+	@echo "  $(COLOR_GREEN)swagger-fmt$(COLOR_RESET)     Format Swagger annotations"
 	@echo ""
 	@echo "$(COLOR_BOLD)Database:$(COLOR_RESET)"
 	@echo "  $(COLOR_GREEN)migrate-up$(COLOR_RESET)      Run database migrations up"
@@ -157,7 +161,7 @@ test-race:
 ## lint: Run golangci-lint
 lint:
 	@echo "$(COLOR_BLUE)Running linter...$(COLOR_RESET)"
-	@golangci-lint run ./... || (echo "$(COLOR_YELLOW)Run 'make install-tools' to install golangci-lint$(COLOR_RESET)" && false)
+	@golangci-lint run ./...
 
 ## fmt: Format code
 fmt:
@@ -180,6 +184,19 @@ mod-tidy:
 mod-verify:
 	@echo "$(COLOR_BLUE)Verifying go modules...$(COLOR_RESET)"
 	@go mod verify
+
+## swagger: Generate Swagger documentation
+swagger:
+	@echo "$(COLOR_BLUE)Generating Swagger documentation...$(COLOR_RESET)"
+	@swag init -g main.go --output docs --parseDependency --parseInternal
+	@echo "$(COLOR_GREEN)Swagger documentation generated!$(COLOR_RESET)"
+	@echo "$(COLOR_GREEN)Access Swagger UI at: http://localhost:8080/swagger/index.html$(COLOR_RESET)"
+
+## swagger-fmt: Format Swagger annotations
+swagger-fmt:
+	@echo "$(COLOR_BLUE)Formatting Swagger annotations...$(COLOR_RESET)"
+	@swag fmt
+	@echo "$(COLOR_GREEN)Swagger annotations formatted!$(COLOR_RESET)"
 
 ## migrate-up: Run database migrations up
 migrate-up:
