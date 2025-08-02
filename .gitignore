@@ -110,7 +110,6 @@ site/
 # Custom binary names
 dove
 urlshortener
-server
 cli
 
 # Local development data

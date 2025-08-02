@@ -8,7 +8,7 @@ APP_NAME := dove
 GO_VERSION := 1.24
 DOCKER_IMAGE := $(APP_NAME):latest
 BUILD_DIR := ./bin
-MAIN_PATH := ./main.go
+MAIN_PATH := ./cmd/server/main.go
 SERVER_PATH := ./cmd/server/main.go
 CLI_PATH := ./cmd/cli/main.go
 
@@ -94,7 +94,7 @@ docker-down:
 build:
 	@echo "$(COLOR_BLUE)Building application...$(COLOR_RESET)"
 	@mkdir -p $(BUILD_DIR)
-	@CGO_ENABLED=0 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(APP_NAME) $(MAIN_PATH)
+	@go build -ldflags="-s -w" -o $(BUILD_DIR)/$(APP_NAME) $(MAIN_PATH)
 	@echo "$(COLOR_GREEN)Build complete: $(BUILD_DIR)/$(APP_NAME)$(COLOR_RESET)"
 
 ## build-all: Build server and CLI binaries
@@ -188,7 +188,7 @@ mod-verify:
 ## swagger: Generate Swagger documentation
 swagger:
 	@echo "$(COLOR_BLUE)Generating Swagger documentation...$(COLOR_RESET)"
-	@swag init -g main.go --output docs --parseDependency --parseInternal
+	@swag init -g cmd/server/main.go --output docs --parseDependency --parseInternal
 	@echo "$(COLOR_GREEN)Swagger documentation generated!$(COLOR_RESET)"
 	@echo "$(COLOR_GREEN)Access Swagger UI at: http://localhost:8080/swagger/index.html$(COLOR_RESET)"
 

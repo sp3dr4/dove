@@ -55,7 +55,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/main.CreateURLRequest"
+                            "$ref": "#/definitions/github_com_sp3dr4_dove_internal_application.CreateURLRequest"
                         }
                     }
                 ],
@@ -63,19 +63,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Successfully created short URL",
                         "schema": {
-                            "$ref": "#/definitions/main.URLResponse"
+                            "$ref": "#/definitions/github_com_sp3dr4_dove_internal_application.URLResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid request or validation error",
                         "schema": {
-                            "$ref": "#/definitions/main.ValidationErrorResponse"
+                            "$ref": "#/definitions/internal_adapters_http.ValidationErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Short code already exists",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/internal_adapters_http.ErrorResponse"
                         }
                     }
                 }
@@ -104,7 +104,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Short URL not found",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/internal_adapters_http.ErrorResponse"
                         }
                     }
                 }
@@ -112,7 +112,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "main.CreateURLRequest": {
+        "github_com_sp3dr4_dove_internal_application.CreateURLRequest": {
             "type": "object",
             "required": [
                 "url"
@@ -121,16 +121,31 @@ const docTemplate = `{
                 "customAlias": {
                     "type": "string",
                     "maxLength": 20,
-                    "minLength": 3,
-                    "example": "mylink"
+                    "minLength": 3
                 },
                 "url": {
-                    "type": "string",
-                    "example": "https://example.com/very/long/url"
+                    "type": "string"
                 }
             }
         },
-        "main.ErrorResponse": {
+        "github_com_sp3dr4_dove_internal_application.URLResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "originalUrl": {
+                    "type": "string"
+                },
+                "shortCode": {
+                    "type": "string"
+                },
+                "shortUrl": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -145,28 +160,7 @@ const docTemplate = `{
                 }
             }
         },
-        "main.URLResponse": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string",
-                    "example": "2024-01-31T12:00:00Z"
-                },
-                "originalUrl": {
-                    "type": "string",
-                    "example": "https://example.com"
-                },
-                "shortCode": {
-                    "type": "string",
-                    "example": "abc123"
-                },
-                "shortUrl": {
-                    "type": "string",
-                    "example": "http://localhost:8080/abc123"
-                }
-            }
-        },
-        "main.ValidationErrorResponse": {
+        "internal_adapters_http.ValidationErrorResponse": {
             "type": "object",
             "properties": {
                 "details": {
