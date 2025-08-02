@@ -1,9 +1,7 @@
-.PHONY: help dev run docker-up docker-down build build-all docker-build clean test test-verbose test-coverage test-integration test-all test-race lint fmt vet mod-tidy mod-verify swagger migrate-create install-tools
+.PHONY: help dev run docker-up docker-down build build-all docker-build docker-run clean test test-verbose test-coverage test-integration test-all test-race lint fmt vet mod-tidy mod-verify swagger migrate-create check install-tools
 
 DEFAULT_GOAL := help
-SHELL = bash
 
-# Variables
 APP_NAME := dove
 GO_VERSION := 1.24
 DOCKER_IMAGE := $(APP_NAME):latest
@@ -12,7 +10,6 @@ MAIN_PATH := ./cmd/server/main.go
 SERVER_PATH := ./cmd/server/main.go
 CLI_PATH := ./cmd/cli/main.go
 
-# Colors for output
 COLOR_RESET := \033[0m
 COLOR_BOLD := \033[1m
 COLOR_GREEN := \033[32m
@@ -61,6 +58,10 @@ docker-build: ## Build Docker image
 	@docker build -t $(DOCKER_IMAGE) .
 	@echo "$(COLOR_GREEN)Docker image built: $(DOCKER_IMAGE)$(COLOR_RESET)"
 
+docker-run: docker-build ## Run the Docker image
+	@echo "$(COLOR_BLUE)Running Docker image...$(COLOR_RESET)"
+	@docker run --rm -p 8080:8080 --name $(APP_NAME)-container $(DOCKER_IMAGE)
+
 clean: ## Clean build artifacts
 	@echo "$(COLOR_BLUE)Cleaning build artifacts...$(COLOR_RESET)"
 	@rm -rf $(BUILD_DIR)
@@ -100,7 +101,7 @@ test-race: ## Run tests with race detector
 	@echo "$(COLOR_BLUE)Running tests with race detector...$(COLOR_RESET)"
 	@go test -race ./...
 
-lint: ## Run golangci-lint
+lint: fmt vet ## Run golangci-lint (with formatting and vet)
 	@echo "$(COLOR_BLUE)Running linter...$(COLOR_RESET)"
 	@golangci-lint run ./...
 
@@ -118,7 +119,7 @@ mod-tidy: ## Tidy go modules
 	@echo "$(COLOR_BLUE)Tidying go modules...$(COLOR_RESET)"
 	@go mod tidy
 
-mod-verify: ## Verify go modules
+mod-verify: mod-tidy ## Verify go modules (with tidy)
 	@echo "$(COLOR_BLUE)Verifying go modules...$(COLOR_RESET)"
 	@go mod verify
 
@@ -133,6 +134,8 @@ migrate-create: ## Create migration for both databases
 	@read -p "Enter migration name: " name; \
 	migrate create -ext sql -dir migrations/postgres -seq $$name || echo "$(COLOR_YELLOW)Install migrate tool: https://github.com/golang-migrate/migrate$(COLOR_RESET)"; \
 	migrate create -ext sql -dir migrations/sqlite -seq $$name || echo "$(COLOR_YELLOW)Install migrate tool: https://github.com/golang-migrate/migrate$(COLOR_RESET)"
+
+check: lint test ## Run all quality checks (format, vet, lint, test)
 
 install-tools: ## Install development tools
 	@echo "$(COLOR_BLUE)Installing development tools...$(COLOR_RESET)"

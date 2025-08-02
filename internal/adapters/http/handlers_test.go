@@ -14,7 +14,7 @@ import (
 func TestHandlers_HandleShorten_ValidationErrorCasing(t *testing.T) {
 	repo := memory.NewURLRepository()
 	service := application.NewURLService(repo)
-	handlers := NewHandlers(service, "http://localhost:8080")
+	handlers := NewHandlers(service, "http://localhost:8080", repo)
 
 	tests := []struct {
 		name           string

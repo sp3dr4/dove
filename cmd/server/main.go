@@ -57,7 +57,7 @@ func main() {
 	}
 
 	service := application.NewURLService(repo)
-	handlers := httpAdapter.NewHandlers(service, cfg.App.BaseURL)
+	handlers := httpAdapter.NewHandlers(service, cfg.App.BaseURL, repo)
 	router := httpAdapter.NewRouter(handlers)
 
 	srv := &http.Server{
@@ -96,15 +96,22 @@ func main() {
 
 	slog.Info("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("Server forced to shutdown", "error", err)
-		os.Exit(1)
+	} else {
+		slog.Info("HTTP server shutdown completed")
 	}
 
-	slog.Info("Server exited")
+	if err := repo.Close(); err != nil {
+		slog.Error("Failed to close repository resources", "error", err)
+	} else {
+		slog.Info("Repository resources closed successfully")
+	}
+
+	slog.Info("Server exited gracefully")
 }
 
 func setupRepository(cfg *config.Config) (domain.URLRepository, error) {

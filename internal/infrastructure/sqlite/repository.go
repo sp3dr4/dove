@@ -94,3 +94,17 @@ func (r *URLRepository) Exists(ctx context.Context, shortCode string) (bool, err
 
 	return exists, nil
 }
+
+func (r *URLRepository) Close() error {
+	if r.db != nil {
+		return r.db.Close()
+	}
+	return nil
+}
+
+func (r *URLRepository) HealthCheck(ctx context.Context) error {
+	if r.db == nil {
+		return errors.New("database connection is nil")
+	}
+	return r.db.PingContext(ctx)
+}
