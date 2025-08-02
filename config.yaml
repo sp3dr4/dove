@@ -1,0 +1,16 @@
+server:
+  port: "8080"
+  read_timeout: "15s"
+  write_timeout: "15s"
+  idle_timeout: "60s"
+
+database:
+  type: "sqlite" # Options: memory, sqlite, postgres
+  sqlite:
+    path: "./data/dove.db"
+  postgres:
+    url: "postgres://dove:dove@localhost:5432/dove?sslmode=disable"
+
+app:
+  base_url: "http://localhost:8080"
+  short_code_length: 6
