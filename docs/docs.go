@@ -35,6 +35,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/ready": {
+            "get": {
+                "description": "Check if the service is ready to serve requests (includes database connectivity)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness check endpoint",
+                "responses": {
+                    "200": {
+                        "description": "Service is ready",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "status": {
+                                    "type": "string"
+                                },
+                                "timestamp": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service is not ready",
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/shorten": {
             "post": {
                 "description": "Create a shortened URL from a long URL",

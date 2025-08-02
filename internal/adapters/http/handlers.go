@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,12 +21,14 @@ import (
 type Handlers struct {
 	service *application.URLService
 	baseURL string
+	repo    domain.URLRepository
 }
 
-func NewHandlers(service *application.URLService, baseURL string) *Handlers {
+func NewHandlers(service *application.URLService, baseURL string, repo domain.URLRepository) *Handlers {
 	return &Handlers{
 		service: service,
 		baseURL: baseURL,
+		repo:    repo,
 	}
 }
 
@@ -41,6 +44,31 @@ func (h *Handlers) HandleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintf(w, "OK")
+}
+
+// HandleReady handles the readiness check endpoint.
+//
+//	@Summary		Readiness check endpoint
+//	@Description	Check if the service is ready to serve requests (includes database connectivity)
+//	@Tags			health
+//	@Produce		json
+//	@Success		200	{object}	object{status=string,timestamp=string}	"Service is ready"
+//	@Failure		503	{object}	ErrorResponse							"Service is not ready"
+//	@Router			/ready [get]
+func (h *Handlers) HandleReady(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	if err := h.repo.HealthCheck(ctx); err != nil {
+		slog.Error("Readiness check failed", "error", err)
+		respondWithError(w, http.StatusServiceUnavailable, "Service not ready: database unavailable")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"status":    "ready",
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
 }
 
 // HandleShorten handles the URL shortening endpoint.

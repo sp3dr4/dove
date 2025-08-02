@@ -75,3 +75,11 @@ func (r *URLRepository) Exists(ctx context.Context, shortCode string) (bool, err
 	_, exists := r.urls[shortCode]
 	return exists, nil
 }
+
+func (r *URLRepository) Close() error {
+	return nil
+}
+
+func (r *URLRepository) HealthCheck(ctx context.Context) error {
+	return nil
+}

@@ -87,6 +87,29 @@ paths:
       summary: Health check endpoint
       tags:
       - health
+  /ready:
+    get:
+      description: Check if the service is ready to serve requests (includes database
+        connectivity)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            properties:
+              status:
+                type: string
+              timestamp:
+                type: string
+            type: object
+        "503":
+          description: Service is not ready
+          schema:
+            $ref: '#/definitions/internal_adapters_http.ErrorResponse'
+      summary: Readiness check endpoint
+      tags:
+      - health
   /shorten:
     post:
       consumes:

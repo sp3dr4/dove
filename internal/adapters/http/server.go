@@ -17,6 +17,7 @@ func NewRouter(handlers *Handlers) chi.Router {
 	r.Use(middleware.Recoverer)
 
 	r.Get("/health", handlers.HandleHealth)
+	r.Get("/ready", handlers.HandleReady)
 	r.Get("/swagger/*", httpswagger.Handler(
 		httpswagger.URL("http://localhost:8080/swagger/doc.json"),
 	))
