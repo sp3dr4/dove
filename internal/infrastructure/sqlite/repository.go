@@ -18,18 +18,33 @@ func NewURLRepository(db *sqlx.DB) *URLRepository {
 	return &URLRepository{db: db}
 }
 
-func (r *URLRepository) Create(ctx context.Context, url *domain.URL) error {
+func (r *URLRepository) Create(ctx context.Context, url *domain.URL) (*domain.URL, error) {
 	query := `
-		INSERT INTO urls (short_code, original_url, clicks, created_at)
-		VALUES (:short_code, :original_url, :clicks, :created_at)
+		INSERT INTO urls (short_code, original_url, clicks, created_at, updated_at)
+		VALUES (:short_code, :original_url, :clicks, :created_at, :updated_at)
 	`
 
-	_, err := r.db.NamedExecContext(ctx, query, url)
+	result, err := r.db.NamedExecContext(ctx, query, url)
 	if err != nil {
-		return domain.ErrShortCodeExists
+		return nil, domain.ErrShortCodeExists
 	}
 
-	return nil
+	// Get the last inserted ID
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	createdURL := &domain.URL{
+		ID:          id,
+		ShortCode:   url.ShortCode,
+		OriginalURL: url.OriginalURL,
+		Clicks:      url.Clicks,
+		CreatedAt:   url.CreatedAt,
+		UpdatedAt:   url.UpdatedAt,
+	}
+
+	return createdURL, nil
 }
 
 func (r *URLRepository) FindByShortCode(ctx context.Context, shortCode string) (*domain.URL, error) {
@@ -47,24 +62,25 @@ func (r *URLRepository) FindByShortCode(ctx context.Context, shortCode string) (
 	return &url, nil
 }
 
-func (r *URLRepository) IncrementClicks(ctx context.Context, shortCode string) error {
+func (r *URLRepository) IncrementClicks(ctx context.Context, shortCode string) (*domain.URL, error) {
 	query := `UPDATE urls SET clicks = clicks + 1 WHERE short_code = $1`
 
 	result, err := r.db.ExecContext(ctx, query, shortCode)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if rowsAffected == 0 {
-		return domain.ErrURLNotFound
+		return nil, domain.ErrURLNotFound
 	}
 
-	return nil
+	// Fetch the updated record
+	return r.FindByShortCode(ctx, shortCode)
 }
 
 func (r *URLRepository) Exists(ctx context.Context, shortCode string) (bool, error) {

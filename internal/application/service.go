@@ -27,10 +27,13 @@ type CreateURLRequest struct {
 }
 
 type URLResponse struct {
+	ID          int64     `json:"id"`
 	ShortURL    string    `json:"shortUrl"`
 	ShortCode   string    `json:"shortCode"`
 	OriginalURL string    `json:"originalUrl"`
+	Clicks      int       `json:"clicks"`
 	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 func (s *URLService) CreateShortURL(ctx context.Context, req CreateURLRequest, baseURL string) (*URLResponse, error) {
@@ -56,15 +59,19 @@ func (s *URLService) CreateShortURL(ctx context.Context, req CreateURLRequest, b
 		return nil, err
 	}
 
-	if err := s.repo.Create(ctx, url); err != nil {
+	createdURL, err := s.repo.Create(ctx, url)
+	if err != nil {
 		return nil, err
 	}
 
 	return &URLResponse{
+		ID:          createdURL.ID,
 		ShortURL:    baseURL + "/" + shortCode,
 		ShortCode:   shortCode,
-		OriginalURL: url.OriginalURL,
-		CreatedAt:   url.CreatedAt,
+		OriginalURL: createdURL.OriginalURL,
+		Clicks:      createdURL.Clicks,
+		CreatedAt:   createdURL.CreatedAt,
+		UpdatedAt:   createdURL.UpdatedAt,
 	}, nil
 }
 
@@ -72,7 +79,7 @@ func (s *URLService) GetURL(ctx context.Context, shortCode string) (*domain.URL,
 	return s.repo.FindByShortCode(ctx, shortCode)
 }
 
-func (s *URLService) IncrementClicks(ctx context.Context, shortCode string) error {
+func (s *URLService) IncrementClicks(ctx context.Context, shortCode string) (*domain.URL, error) {
 	return s.repo.IncrementClicks(ctx, shortCode)
 }
 

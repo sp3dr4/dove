@@ -131,8 +131,14 @@ const docTemplate = `{
         "github_com_sp3dr4_dove_internal_application.URLResponse": {
             "type": "object",
             "properties": {
+                "clicks": {
+                    "type": "integer"
+                },
                 "createdAt": {
                     "type": "string"
+                },
+                "id": {
+                    "type": "integer"
                 },
                 "originalUrl": {
                     "type": "string"
@@ -141,6 +147,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "shortUrl": {
+                    "type": "string"
+                },
+                "updatedAt": {
                     "type": "string"
                 }
             }
