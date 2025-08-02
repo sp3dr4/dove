@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -146,7 +148,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 func handleValidationError(w http.ResponseWriter, validationErrors validator.ValidationErrors) {
 	errorMessages := make(map[string]string)
 	for _, e := range validationErrors {
-		field := e.Field()
+		field := getJSONFieldName(e)
 		switch e.Tag() {
 		case "required":
 			errorMessages[field] = fmt.Sprintf("%s is required", field)
@@ -167,4 +169,57 @@ func handleValidationError(w http.ResponseWriter, validationErrors validator.Val
 		"error":   "Validation failed",
 		"details": errorMessages,
 	})
+}
+
+// getJSONFieldName extracts the JSON tag name from a validation error
+func getJSONFieldName(e validator.FieldError) string {
+	structType := getStructTypeFromError(e)
+	if structType == nil {
+		return e.Field()
+	}
+
+	field, found := structType.FieldByName(e.StructField())
+	if !found {
+		return e.Field()
+	}
+
+	jsonTag := field.Tag.Get("json")
+	if jsonTag == "" {
+		return e.Field()
+	}
+
+	if commaIndex := strings.Index(jsonTag, ","); commaIndex != -1 {
+		jsonTag = jsonTag[:commaIndex]
+	}
+
+	return jsonTag
+}
+
+// getStructTypeFromError extracts the struct type from a validation error
+func getStructTypeFromError(e validator.FieldError) reflect.Type {
+	// Use the Type() method to get the field's type, then navigate to the parent struct
+	// The StructNamespace gives us something like "CreateURLRequest.URL"
+	namespace := e.StructNamespace()
+
+	// Split the namespace to get the struct name
+	parts := strings.Split(namespace, ".")
+	if len(parts) < 2 {
+		return nil
+	}
+
+	return getTypeFromStructName(parts[0])
+}
+
+// getTypeFromStructName returns the reflect.Type for a given struct name
+// This acts as a registry for known request types
+func getTypeFromStructName(structName string) reflect.Type {
+	switch structName {
+	case "CreateURLRequest":
+		return reflect.TypeOf(application.CreateURLRequest{})
+	// Add more request types here as needed
+	// case "UpdateURLRequest":
+	//     return reflect.TypeOf(application.UpdateURLRequest{})
+	default:
+		return nil
+	}
 }
