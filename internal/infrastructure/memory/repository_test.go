@@ -17,13 +17,16 @@ func TestMemoryRepository_Create(t *testing.T) {
 		Clicks:      0,
 	}
 
-	err := repo.Create(ctx, url)
+	createdURL, err := repo.Create(ctx, url)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if createdURL == nil {
+		t.Fatal("expected created URL, got nil")
+	}
 
 	// Try to create duplicate
-	err = repo.Create(ctx, url)
+	_, err = repo.Create(ctx, url)
 	if err != domain.ErrShortCodeExists {
 		t.Fatalf("expected ErrShortCodeExists, got %v", err)
 	}
@@ -39,7 +42,7 @@ func TestMemoryRepository_FindByShortCode(t *testing.T) {
 		Clicks:      0,
 	}
 
-	if err := repo.Create(ctx, url); err != nil {
+	if _, err := repo.Create(ctx, url); err != nil {
 		t.Fatalf("failed to create URL: %v", err)
 	}
 
@@ -69,11 +72,11 @@ func TestMemoryRepository_IncrementClicks(t *testing.T) {
 		Clicks:      0,
 	}
 
-	if err := repo.Create(ctx, url); err != nil {
+	if _, err := repo.Create(ctx, url); err != nil {
 		t.Fatalf("failed to create URL: %v", err)
 	}
 
-	err := repo.IncrementClicks(ctx, "test123")
+	_, err := repo.IncrementClicks(ctx, "test123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -84,7 +87,7 @@ func TestMemoryRepository_IncrementClicks(t *testing.T) {
 	}
 
 	// Non-existing
-	err = repo.IncrementClicks(ctx, "notfound")
+	_, err = repo.IncrementClicks(ctx, "notfound")
 	if err != domain.ErrURLNotFound {
 		t.Fatalf("expected ErrURLNotFound, got %v", err)
 	}
@@ -100,7 +103,7 @@ func TestMemoryRepository_Exists(t *testing.T) {
 		Clicks:      0,
 	}
 
-	if err := repo.Create(ctx, url); err != nil {
+	if _, err := repo.Create(ctx, url); err != nil {
 		t.Fatalf("failed to create URL: %v", err)
 	}
 

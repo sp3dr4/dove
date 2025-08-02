@@ -18,6 +18,7 @@ type URL struct {
 	OriginalURL string    `db:"original_url" json:"originalUrl"`
 	Clicks      int       `db:"clicks" json:"clicks"`
 	CreatedAt   time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updatedAt"`
 }
 
 func NewURL(shortCode, originalURL string) (*URL, error) {
@@ -28,11 +29,13 @@ func NewURL(shortCode, originalURL string) (*URL, error) {
 		return nil, ErrInvalidURL
 	}
 
+	now := time.Now()
 	return &URL{
 		ShortCode:   shortCode,
 		OriginalURL: originalURL,
 		Clicks:      0,
-		CreatedAt:   time.Now(),
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}, nil
 }
 

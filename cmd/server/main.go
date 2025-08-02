@@ -34,6 +34,7 @@ import (
 	"github.com/sp3dr4/dove/internal/application"
 	"github.com/sp3dr4/dove/internal/domain"
 	memoryRepo "github.com/sp3dr4/dove/internal/infrastructure/memory"
+	postgresRepo "github.com/sp3dr4/dove/internal/infrastructure/postgres"
 	sqliteRepo "github.com/sp3dr4/dove/internal/infrastructure/sqlite"
 )
 
@@ -126,7 +127,7 @@ func setupRepository(cfg *config.Config) (domain.URLRepository, error) {
 			return nil, fmt.Errorf("failed to connect to SQLite: %w", err)
 		}
 
-		if err := runMigrations(db, "sqlite3"); err != nil {
+		if err := runMigrations(db, "sqlite3", "sqlite"); err != nil {
 			return nil, fmt.Errorf("failed to run migrations: %w", err)
 		}
 
@@ -141,18 +142,18 @@ func setupRepository(cfg *config.Config) (domain.URLRepository, error) {
 			return nil, fmt.Errorf("failed to connect to PostgreSQL: %w", err)
 		}
 
-		if err := runMigrations(db, "postgres"); err != nil {
+		if err := runMigrations(db, "postgres", "postgres"); err != nil {
 			return nil, fmt.Errorf("failed to run migrations: %w", err)
 		}
 
-		return sqliteRepo.NewURLRepository(db), nil
+		return postgresRepo.NewURLRepository(db), nil
 
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", cfg.Database.Type)
 	}
 }
 
-func runMigrations(db interface{}, driverName string) error {
+func runMigrations(db interface{}, driverName, migrationDir string) error {
 	var driver database.Driver
 	var err error
 
@@ -179,8 +180,9 @@ func runMigrations(db interface{}, driverName string) error {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
 
+	migrationPath := fmt.Sprintf("file://migrations/%s", migrationDir)
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		migrationPath,
 		driverName,
 		driver,
 	)

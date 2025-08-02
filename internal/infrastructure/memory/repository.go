@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/sp3dr4/dove/internal/domain"
 )
@@ -18,16 +19,26 @@ func NewURLRepository() *URLRepository {
 	}
 }
 
-func (r *URLRepository) Create(ctx context.Context, url *domain.URL) error {
+func (r *URLRepository) Create(ctx context.Context, url *domain.URL) (*domain.URL, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, exists := r.urls[url.ShortCode]; exists {
-		return domain.ErrShortCodeExists
+		return nil, domain.ErrShortCodeExists
 	}
 
-	r.urls[url.ShortCode] = url
-	return nil
+	// Create a copy with a generated ID (simulate database behavior)
+	createdURL := &domain.URL{
+		ID:          int64(len(r.urls) + 1), // Simple ID generation
+		ShortCode:   url.ShortCode,
+		OriginalURL: url.OriginalURL,
+		Clicks:      url.Clicks,
+		CreatedAt:   url.CreatedAt,
+		UpdatedAt:   url.UpdatedAt,
+	}
+
+	r.urls[url.ShortCode] = createdURL
+	return createdURL, nil
 }
 
 func (r *URLRepository) FindByShortCode(ctx context.Context, shortCode string) (*domain.URL, error) {
@@ -42,17 +53,19 @@ func (r *URLRepository) FindByShortCode(ctx context.Context, shortCode string) (
 	return url, nil
 }
 
-func (r *URLRepository) IncrementClicks(ctx context.Context, shortCode string) error {
+func (r *URLRepository) IncrementClicks(ctx context.Context, shortCode string) (*domain.URL, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	url, exists := r.urls[shortCode]
 	if !exists {
-		return domain.ErrURLNotFound
+		return nil, domain.ErrURLNotFound
 	}
 
 	url.Clicks++
-	return nil
+	url.UpdatedAt = time.Now()
+
+	return url, nil
 }
 
 func (r *URLRepository) Exists(ctx context.Context, shortCode string) (bool, error) {

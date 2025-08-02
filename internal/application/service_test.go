@@ -236,7 +236,7 @@ func TestURLService_IncrementClicks(t *testing.T) {
 	}
 
 	// Increment clicks
-	err = service.IncrementClicks(ctx, "clicktest")
+	_, err = service.IncrementClicks(ctx, "clicktest")
 	if err != nil {
 		t.Fatalf("unexpected error incrementing clicks: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestURLService_IncrementClicks(t *testing.T) {
 	}
 
 	// Increment non-existing URL
-	err = service.IncrementClicks(ctx, "notfound")
+	_, err = service.IncrementClicks(ctx, "notfound")
 	if err != domain.ErrURLNotFound {
 		t.Fatalf("expected ErrURLNotFound, got %v", err)
 	}

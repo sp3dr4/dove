@@ -108,11 +108,14 @@ func (h *Handlers) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.IncrementClicks(r.Context(), shortCode); err != nil {
+	updatedURL, err := h.service.IncrementClicks(r.Context(), shortCode)
+	if err != nil {
 		slog.Error("Failed to increment clicks", "error", err)
+		// Continue with redirect even if click increment fails
+		slog.Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", url.Clicks)
+	} else {
+		slog.Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", updatedURL.Clicks)
 	}
-
-	slog.Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", url.Clicks+1)
 	http.Redirect(w, r, url.OriginalURL, http.StatusMovedPermanently)
 }
 

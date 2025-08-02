@@ -13,13 +13,19 @@ definitions:
     type: object
   github_com_sp3dr4_dove_internal_application.URLResponse:
     properties:
+      clicks:
+        type: integer
       createdAt:
         type: string
+      id:
+        type: integer
       originalUrl:
         type: string
       shortCode:
         type: string
       shortUrl:
+        type: string
+      updatedAt:
         type: string
     type: object
   internal_adapters_http.ErrorResponse:
