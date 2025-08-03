@@ -1,0 +1,44 @@
+meta {
+  name: Short Code Not Found
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/:shortCode
+  body: none
+  auth: none
+}
+
+params:path {
+  shortCode: fakeval
+}
+
+headers {
+  Accept: application/json
+}
+
+tests {
+  test("should return 404 Not Found", function() {
+    expect(res.getStatus()).to.equal(404);
+  });
+  
+  test("should return JSON error response", function() {
+    expect(res.getHeader("content-type")).to.contain("application/json");
+  });
+  
+  test("should have error message", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("error");
+    expect(body.error).to.have.property("message");
+    expect(body.error.message).to.equal("Short URL not found");
+  });
+  
+  test("should have timestamp", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("timestamp");
+    const timestamp = new Date(body.timestamp);
+    expect(timestamp).to.be.instanceOf(Date);
+    expect(timestamp.toString()).to.not.equal("Invalid Date");
+  });
+}

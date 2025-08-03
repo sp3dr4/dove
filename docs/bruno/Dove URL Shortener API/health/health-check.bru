@@ -1,0 +1,29 @@
+meta {
+  name: Health Check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: text/plain
+}
+
+tests {
+  test("should return 200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return OK text", function() {
+    expect(res.getBody()).to.equal("OK");
+  });
+
+  test("should have correct content type", function() {
+    expect(res.getHeader("content-type")).to.equal("text/plain");
+  });
+}

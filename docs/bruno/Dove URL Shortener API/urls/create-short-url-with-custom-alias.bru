@@ -1,0 +1,44 @@
+meta {
+  name: Create Short URL with Custom Alias
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/shorten
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "url": "https://www.github.com/sp3dr4/dove",
+    "customAlias": "home"
+  }
+}
+
+tests {
+  test("should return 201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("should use custom alias as short code", function() {
+    const body = res.getBody();
+    expect(body.shortCode).to.equal("dove-repo");
+  });
+
+  test("should have correct short URL with custom alias", function() {
+    const body = res.getBody();
+    expect(body.shortUrl).to.contain("dove-repo");
+  });
+
+  test("should have correct original URL", function() {
+    const body = res.getBody();
+    expect(body.originalUrl).to.equal("https://www.github.com/sp3dr4/dove");
+  });
+}
