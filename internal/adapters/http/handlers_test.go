@@ -7,6 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/sp3dr4/dove/internal/application"
 	"github.com/sp3dr4/dove/internal/infrastructure/memory"
 )
@@ -59,43 +62,27 @@ func performValidationTest(t *testing.T, handlers *Handlers, payload string) map
 
 	handlers.HandleShorten(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
-	}
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	var response map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
 
 	details, ok := response["details"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected details field in response, got: %v", response)
-	}
+	require.True(t, ok, "expected details field in response, got: %v", response)
 
 	return details
 }
 
 func checkExpectedFields(t *testing.T, details map[string]interface{}, expectedFields []string) {
 	for _, expectedField := range expectedFields {
-		if _, exists := details[expectedField]; !exists {
-			t.Errorf("expected field %q in error details, but got fields: %v", expectedField, getKeys(details))
-		}
+		assert.Contains(t, details, expectedField, "expected field %q in error details, but got fields: %v", expectedField, getKeys(details))
 	}
 }
 
 func checkNoUnexpectedFields(t *testing.T, details map[string]interface{}, expectedFields []string) {
 	for field := range details {
-		found := false
-		for _, expectedField := range expectedFields {
-			if field == expectedField {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("unexpected field %q in error details, expected only: %v", field, expectedFields)
-		}
+		assert.Contains(t, expectedFields, field, "unexpected field %q in error details, expected only: %v", field, expectedFields)
 	}
 }
 
