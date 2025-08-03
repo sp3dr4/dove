@@ -1,0 +1,65 @@
+meta {
+  name: Create Short URL
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/shorten
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "url": "https://www.example.com/very/long/url/that/needs/to/be/shortened"
+  }
+}
+
+tests {
+  test("should return 201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("should return JSON response", function() {
+    expect(res.getHeader("content-type")).to.contain("application/json");
+  });
+
+  test("should have required response fields", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("id");
+    expect(body).to.have.property("shortCode");
+    expect(body).to.have.property("shortUrl");
+    expect(body).to.have.property("originalUrl");
+    expect(body).to.have.property("clicks");
+    expect(body).to.have.property("createdAt");
+    expect(body).to.have.property("updatedAt");
+  });
+
+  test("should have correct original URL", function() {
+    const body = res.getBody();
+    expect(body.originalUrl).to.equal("https://www.example.com/very/long/url/that/needs/to/be/shortened");
+  });
+
+  test("should have zero clicks initially", function() {
+    const body = res.getBody();
+    expect(body.clicks).to.equal(0);
+  });
+
+  test("should have valid short code", function() {
+    const body = res.getBody();
+    expect(body.shortCode).to.be.a("string");
+    expect(body.shortCode.length).to.be.greaterThan(0);
+  });
+
+  test("should have valid short URL format", function() {
+    const body = res.getBody();
+    expect(body.shortUrl).to.contain("{{baseUrl}}");
+    expect(body.shortUrl).to.contain(body.shortCode);
+  });
+}

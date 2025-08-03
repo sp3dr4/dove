@@ -1,0 +1,35 @@
+meta {
+  name: Redirect to Original URL
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/:shortCode
+  body: none
+  auth: none
+}
+
+params:path {
+  shortCode: home
+}
+
+headers {
+  Accept: */*
+}
+
+tests {
+  test("should return 301 redirect", function() {
+    expect(res.getStatus()).to.equal(301);
+  });
+  
+  test("should have Location header", function() {
+    expect(res.getHeader("location")).to.be.a("string");
+    expect(res.getHeader("location").length).to.be.greaterThan(0);
+  });
+  
+  test("should redirect to valid URL", function() {
+    const location = res.getHeader("location");
+    expect(location).to.match(/^https?:\/\/.+/);
+  });
+}

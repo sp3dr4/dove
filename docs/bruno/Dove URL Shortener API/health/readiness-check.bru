@@ -1,0 +1,39 @@
+meta {
+  name: Readiness Check
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/ready
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+tests {
+  test("should return 200 OK when ready", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return JSON response", function() {
+    expect(res.getHeader("content-type")).to.contain("application/json");
+  });
+
+  test("should have status and timestamp", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("status");
+    expect(body).to.have.property("timestamp");
+    expect(body.status).to.equal("ready");
+  });
+
+  test("should have valid timestamp format", function() {
+    const body = res.getBody();
+    const timestamp = new Date(body.timestamp);
+    expect(timestamp).to.be.instanceOf(Date);
+    expect(timestamp.toString()).to.not.equal("Invalid Date");
+  });
+}

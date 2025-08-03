@@ -1,0 +1,41 @@
+meta {
+  name: Missing URL
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/shorten
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "customAlias": "alias"
+  }
+}
+
+tests {
+  test("should return 400 Bad Request", function() {
+    expect(res.getStatus()).to.equal(400);
+  });
+  
+  test("should return validation error", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("error");
+    expect(body).to.have.property("details");
+    expect(body.error).to.equal("Validation failed");
+  });
+  
+  test("should have required URL error in details", function() {
+    const body = res.getBody();
+    expect(body.details).to.have.property("url");
+    expect(body.details.url).to.contain("required");
+  });
+}

@@ -1,0 +1,45 @@
+meta {
+  name: Duplicate Custom Alias
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/shorten
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "url": "https://www.different-example.com",
+    "customAlias": "home"
+  }
+}
+
+tests {
+  test("should return 409 Conflict", function() {
+    expect(res.getStatus()).to.equal(409);
+  });
+  
+  test("should return JSON error response", function() {
+    expect(res.getHeader("content-type")).to.contain("application/json");
+  });
+  
+  test("should have conflict error message", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("error");
+    expect(body.error).to.have.property("message");
+    expect(body.error.message).to.equal("Short code already exists");
+  });
+  
+  test("should have timestamp", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("timestamp");
+  });
+}
