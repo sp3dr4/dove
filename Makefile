@@ -71,35 +71,17 @@ clean: ## Clean build artifacts
 	@rm -f coverage.html
 	@echo "$(COLOR_GREEN)Clean complete!$(COLOR_RESET)"
 
-test: ## Run unit tests
-	@echo "$(COLOR_BLUE)Running tests...$(COLOR_RESET)"
+test: ## Run unit tests (fast feedback)
+	@echo "$(COLOR_BLUE)Running unit tests...$(COLOR_RESET)"
 	@go test -short ./...
 
-test-verbose: ## Run tests with verbose output
-	@echo "$(COLOR_BLUE)Running tests (verbose)...$(COLOR_RESET)"
-	@go test -v -short ./...
-
-test-coverage: ## Run tests with coverage report
-	@echo "$(COLOR_BLUE)Running tests with coverage...$(COLOR_RESET)"
+test-all: ## Run all tests with coverage report
+	@echo "$(COLOR_BLUE)Running all tests with coverage...$(COLOR_RESET)"
 	@mkdir -p coverage
-	@go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	@go test -v -race -coverprofile=coverage.out -covermode=atomic ./... ./test/integration/...
 	@go tool cover -html=coverage.out -o coverage/index.html
 	@echo "$(COLOR_GREEN)Coverage report generated: coverage/index.html$(COLOR_RESET)"
 	@go tool cover -func=coverage.out | grep total | awk '{print "Total Coverage: " $$3}'
-
-test-integration: ## Run integration tests
-	@echo "$(COLOR_BLUE)Running integration tests...$(COLOR_RESET)"
-	@go test -v -tags=integration ./...
-
-test-all: ## Run all tests with coverage
-	@echo "$(COLOR_BLUE)Running all tests...$(COLOR_RESET)"
-	@go test -v -race -tags=integration -coverprofile=coverage.out -covermode=atomic ./...
-	@go tool cover -html=coverage.out -o coverage/index.html
-	@echo "$(COLOR_GREEN)Coverage report generated: coverage/index.html$(COLOR_RESET)"
-
-test-race: ## Run tests with race detector
-	@echo "$(COLOR_BLUE)Running tests with race detector...$(COLOR_RESET)"
-	@go test -race ./...
 
 lint: fmt vet ## Run golangci-lint (with formatting and vet)
 	@echo "$(COLOR_BLUE)Running linter...$(COLOR_RESET)"
