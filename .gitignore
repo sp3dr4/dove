@@ -107,11 +107,6 @@ site/
 *.prof
 *.pprof
 
-# Custom binary names
-dove
-urlshortener
-cli
-
 # Local development data
 data/
 postgres-data/
