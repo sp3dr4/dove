@@ -125,15 +125,19 @@ func TestConfigModule(t *testing.T) {
 }
 func TestProviderFunctions(t *testing.T) {
 	t.Run("ProvideLogger", func(t *testing.T) {
-		logger := ProvideLogger()
+		cfg := &config.Config{
+			Logging: config.LoggingConfig{Level: "info"},
+		}
+		logger := ProvideLogger(cfg)
 		assert.NotNil(t, logger)
 	})
 
 	t.Run("ProvideRepository", func(t *testing.T) {
 		cfg := &config.Config{
 			Database: config.DatabaseConfig{Type: "memory"},
+			Logging:  config.LoggingConfig{Level: "info"},
 		}
-		logger := ProvideLogger()
+		logger := ProvideLogger(cfg)
 
 		repo, err := ProvideRepository(cfg, logger)
 		require.NoError(t, err)

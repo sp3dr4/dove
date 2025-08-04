@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
@@ -25,12 +26,27 @@ import (
 )
 
 // ProvideLogger creates and configures the application logger
-func ProvideLogger() *slog.Logger {
+func ProvideLogger(cfg *config.Config) *slog.Logger {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: parseLogLevel(cfg.Logging.Level),
 	}))
 	slog.SetDefault(logger)
 	return logger
+}
+
+func parseLogLevel(level string) slog.Level {
+	switch strings.ToLower(level) {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 // ProvideRepository creates the appropriate repository based on configuration
@@ -38,7 +54,7 @@ func ProvideRepository(cfg *config.Config, logger *slog.Logger) (domain.URLRepos
 	switch cfg.Database.Type {
 	case "memory":
 		logger.Info("Using in-memory repository")
-		return memoryRepo.NewURLRepository(), nil
+		return memoryRepo.NewURLRepository(logger), nil
 
 	case "sqlite":
 		dbURL := cfg.GetDatabaseURL()
@@ -58,7 +74,7 @@ func ProvideRepository(cfg *config.Config, logger *slog.Logger) (domain.URLRepos
 			return nil, fmt.Errorf("failed to run migrations: %w", err)
 		}
 
-		return sqliteRepo.NewURLRepository(db), nil
+		return sqliteRepo.NewURLRepository(db, logger), nil
 
 	case "postgres":
 		dbURL := cfg.GetDatabaseURL()
@@ -73,7 +89,7 @@ func ProvideRepository(cfg *config.Config, logger *slog.Logger) (domain.URLRepos
 			return nil, fmt.Errorf("failed to run migrations: %w", err)
 		}
 
-		return postgresRepo.NewURLRepository(db), nil
+		return postgresRepo.NewURLRepository(db, logger), nil
 
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", cfg.Database.Type)

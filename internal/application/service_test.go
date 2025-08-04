@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"strings"
 	"testing"
 
@@ -13,7 +15,8 @@ import (
 
 // TestURLService_ShortCodeGeneration tests the short code generation algorithm
 func TestURLService_ShortCodeGeneration(t *testing.T) {
-	repo := memory.NewURLRepository()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	repo := memory.NewURLRepository(logger)
 	service := NewURLService(repo)
 	ctx := context.Background()
 
@@ -44,7 +47,8 @@ func TestURLService_ShortCodeGeneration(t *testing.T) {
 
 // TestURLService_CustomAliasValidation tests custom alias validation logic
 func TestURLService_CustomAliasValidation(t *testing.T) {
-	repo := memory.NewURLRepository()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	repo := memory.NewURLRepository(logger)
 	service := NewURLService(repo)
 	ctx := context.Background()
 

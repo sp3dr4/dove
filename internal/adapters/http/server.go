@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -8,12 +9,12 @@ import (
 	httpswagger "github.com/swaggo/http-swagger"
 )
 
-func NewRouter(handlers *Handlers) chi.Router {
+func NewRouter(handlers *Handlers, logger *slog.Logger) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(LoggingMiddleware(logger))
 	r.Use(middleware.Recoverer)
 
 	r.Get("/health", handlers.HandleHealth)

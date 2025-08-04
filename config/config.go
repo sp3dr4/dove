@@ -11,6 +11,7 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
 	App      AppConfig      `mapstructure:"app"`
+	Logging  LoggingConfig  `mapstructure:"logging"`
 }
 
 type ServerConfig struct {
@@ -39,6 +40,10 @@ type AppConfig struct {
 	ShortCodeLength int    `mapstructure:"short_code_length"`
 }
 
+type LoggingConfig struct {
+	Level string `mapstructure:"level"`
+}
+
 func Load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -61,6 +66,8 @@ func Load() (*Config, error) {
 
 	viper.SetDefault("app.base_url", "http://localhost:8080")
 	viper.SetDefault("app.short_code_length", 6)
+
+	viper.SetDefault("logging.level", "info")
 
 	// Read config file if it exists
 	if err := viper.ReadInConfig(); err != nil {
