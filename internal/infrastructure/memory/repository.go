@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -9,13 +10,15 @@ import (
 )
 
 type URLRepository struct {
-	urls map[string]*domain.URL
-	mu   sync.RWMutex
+	urls   map[string]*domain.URL
+	mu     sync.RWMutex
+	logger *slog.Logger
 }
 
-func NewURLRepository() *URLRepository {
+func NewURLRepository(logger *slog.Logger) *URLRepository {
 	return &URLRepository{
-		urls: make(map[string]*domain.URL),
+		urls:   make(map[string]*domain.URL),
+		logger: logger,
 	}
 }
 

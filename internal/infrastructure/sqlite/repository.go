@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 
 	"github.com/jmoiron/sqlx"
 
@@ -11,11 +12,12 @@ import (
 )
 
 type URLRepository struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	logger *slog.Logger
 }
 
-func NewURLRepository(db *sqlx.DB) *URLRepository {
-	return &URLRepository{db: db}
+func NewURLRepository(db *sqlx.DB, logger *slog.Logger) *URLRepository {
+	return &URLRepository{db: db, logger: logger}
 }
 
 func (r *URLRepository) Create(ctx context.Context, url *domain.URL) (*domain.URL, error) {

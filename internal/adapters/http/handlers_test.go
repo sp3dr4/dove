@@ -3,8 +3,10 @@ package http
 import (
 	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +17,8 @@ import (
 )
 
 func TestHandlers_HandleShorten_ValidationErrorCasing(t *testing.T) {
-	repo := memory.NewURLRepository()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	repo := memory.NewURLRepository(logger)
 	service := application.NewURLService(repo)
 	handlers := NewHandlers(service, "http://localhost:8080", repo)
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -74,7 +75,8 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 
 	cleanDatabase(t, sharedDB)
 
-	repo := postgresRepo.NewURLRepository(sharedDB)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	repo := postgresRepo.NewURLRepository(sharedDB, logger)
 	service := application.NewURLService(repo)
 
 	return &TestEnvironment{

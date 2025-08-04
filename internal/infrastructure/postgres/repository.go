@@ -14,11 +14,12 @@ import (
 )
 
 type URLRepository struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	logger *slog.Logger
 }
 
-func NewURLRepository(db *sqlx.DB) *URLRepository {
-	return &URLRepository{db: db}
+func NewURLRepository(db *sqlx.DB, logger *slog.Logger) *URLRepository {
+	return &URLRepository{db: db, logger: logger}
 }
 
 func (r *URLRepository) Create(ctx context.Context, url *domain.URL) (*domain.URL, error) {
@@ -35,7 +36,7 @@ func (r *URLRepository) Create(ctx context.Context, url *domain.URL) (*domain.UR
 		return nil, r.handlePostgreSQLError(err, "create URL")
 	}
 
-	slog.Debug("URL created successfully", "short_code", result.ShortCode, "id", result.ID)
+	r.logger.Debug("URL created successfully", "short_code", result.ShortCode, "id", result.ID)
 	return &result, nil
 }
 
@@ -69,7 +70,7 @@ func (r *URLRepository) IncrementClicks(ctx context.Context, shortCode string) (
 		return nil, r.handlePostgreSQLError(err, "increment clicks")
 	}
 
-	slog.Debug("Clicks incremented", "short_code", shortCode, "new_count", url.Clicks)
+	r.logger.Debug("Clicks incremented", "short_code", shortCode, "new_count", url.Clicks)
 	return &url, nil
 }
 
@@ -88,7 +89,7 @@ func (r *URLRepository) Exists(ctx context.Context, shortCode string) (bool, err
 // handlePostgreSQLError converts PostgreSQL-specific errors to domain errors
 func (r *URLRepository) handlePostgreSQLError(err error, operation string) error {
 	if pqErr, ok := err.(*pq.Error); ok {
-		slog.Error("PostgreSQL error",
+		r.logger.Error("PostgreSQL error",
 			"operation", operation,
 			"code", pqErr.Code,
 			"message", pqErr.Message,

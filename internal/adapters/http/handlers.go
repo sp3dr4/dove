@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"reflect"
 	"strings"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/sp3dr4/dove/internal/application"
 	"github.com/sp3dr4/dove/internal/domain"
+	"github.com/sp3dr4/dove/internal/pkg/logging"
 )
 
 type Handlers struct {
@@ -60,14 +60,13 @@ func (h *Handlers) HandleReady(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.repo.HealthCheck(ctx); err != nil {
-		slog.Error("Readiness check failed", "error", err)
-		respondWithError(w, http.StatusServiceUnavailable, "Service not ready: database unavailable")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		logging.FromContext(r.Context()).Error("Readiness check failed", "error", err)
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, map[string]string{
-		"status":    "ready",
-		"timestamp": time.Now().Format(time.RFC3339),
+	respondWithJSON(w, r.Context(), http.StatusOK, map[string]string{
+		"status": "ready",
 	})
 }
 
@@ -86,31 +85,31 @@ func (h *Handlers) HandleReady(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) HandleShorten(w http.ResponseWriter, r *http.Request) {
 	var req application.CreateURLRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		slog.Error("Failed to decode request", "error", err)
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		logging.FromContext(r.Context()).Error("Failed to decode request", "error", err)
+		respondWithError(w, r.Context(), http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	response, err := h.service.CreateShortURL(r.Context(), req, h.baseURL)
 	if err != nil {
 		if errors.Is(err, domain.ErrShortCodeExists) {
-			respondWithError(w, http.StatusConflict, "Short code already exists")
+			respondWithError(w, r.Context(), http.StatusConflict, "Short code already exists")
 			return
 		}
 
 		var validationErrors validator.ValidationErrors
 		if errors.As(err, &validationErrors) {
-			handleValidationError(w, validationErrors)
+			handleValidationError(w, r.Context(), validationErrors)
 			return
 		}
 
-		slog.Error("Failed to create short URL", "error", err)
-		respondWithError(w, http.StatusInternalServerError, "Failed to create short URL")
+		logging.FromContext(r.Context()).Error("Failed to create short URL", "error", err)
+		respondWithError(w, r.Context(), http.StatusInternalServerError, "Failed to create short URL")
 		return
 	}
 
-	slog.Info("Created short URL", "short_code", response.ShortCode, "original_url", response.OriginalURL)
-	respondWithJSON(w, http.StatusCreated, response)
+	logging.FromContext(r.Context()).Info("Created short URL", "short_code", response.ShortCode, "original_url", response.OriginalURL)
+	respondWithJSON(w, r.Context(), http.StatusCreated, response)
 }
 
 // HandleRedirect handles the redirect endpoint.
@@ -128,21 +127,21 @@ func (h *Handlers) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	url, err := h.service.GetURL(r.Context(), shortCode)
 	if err != nil {
 		if errors.Is(err, domain.ErrURLNotFound) {
-			respondWithError(w, http.StatusNotFound, "Short URL not found")
+			respondWithError(w, r.Context(), http.StatusNotFound, "Short URL not found")
 			return
 		}
-		slog.Error("Failed to get URL", "error", err)
-		respondWithError(w, http.StatusInternalServerError, "Failed to get URL")
+		logging.FromContext(r.Context()).Error("Failed to get URL", "error", err)
+		respondWithError(w, r.Context(), http.StatusInternalServerError, "Failed to get URL")
 		return
 	}
 
 	updatedURL, err := h.service.IncrementClicks(r.Context(), shortCode)
 	if err != nil {
-		slog.Error("Failed to increment clicks", "error", err)
+		logging.FromContext(r.Context()).Error("Failed to increment clicks", "error", err)
 		// Continue with redirect even if click increment fails
-		slog.Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", url.Clicks)
+		logging.FromContext(r.Context()).Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", url.Clicks)
 	} else {
-		slog.Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", updatedURL.Clicks)
+		logging.FromContext(r.Context()).Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", updatedURL.Clicks)
 	}
 	http.Redirect(w, r, url.OriginalURL, http.StatusMovedPermanently)
 }
@@ -159,16 +158,16 @@ type ValidationErrorResponse struct {
 	Error   string            `json:"error" example:"Validation failed"`
 }
 
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+func respondWithJSON(w http.ResponseWriter, ctx context.Context, code int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		slog.Error("Failed to encode response", "error", err)
+		logging.FromContext(ctx).Error("Failed to encode response", "error", err)
 	}
 }
 
-func respondWithError(w http.ResponseWriter, code int, message string) {
-	respondWithJSON(w, code, map[string]interface{}{
+func respondWithError(w http.ResponseWriter, ctx context.Context, code int, message string) {
+	respondWithJSON(w, ctx, code, map[string]interface{}{
 		"error": map[string]string{
 			"message": message,
 		},
@@ -176,7 +175,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 	})
 }
 
-func handleValidationError(w http.ResponseWriter, validationErrors validator.ValidationErrors) {
+func handleValidationError(w http.ResponseWriter, ctx context.Context, validationErrors validator.ValidationErrors) {
 	errorMessages := make(map[string]string)
 	for _, e := range validationErrors {
 		field := getJSONFieldName(e)
@@ -196,7 +195,7 @@ func handleValidationError(w http.ResponseWriter, validationErrors validator.Val
 		}
 	}
 
-	respondWithJSON(w, http.StatusBadRequest, map[string]interface{}{
+	respondWithJSON(w, ctx, http.StatusBadRequest, map[string]interface{}{
 		"error":   "Validation failed",
 		"details": errorMessages,
 	})
