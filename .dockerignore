@@ -1,0 +1,48 @@
+# Git files
+.git
+.gitignore
+
+# GitHub
+.github/
+
+# Documentation
+*.md
+LICENSE
+
+# Development files
+.air.toml
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+dove
+*.exe
+/bin/
+/dist/
+/build/
+
+# Test files
+*_test.go
+coverage/
+*.out
+*.test
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CI/CD
+ci-*.txt
+*.log
+
+# Bruno API specs
+bruno/
+
+# Temporary files
+tmp/
+temp/

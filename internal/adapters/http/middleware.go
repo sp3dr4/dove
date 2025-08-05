@@ -47,7 +47,7 @@ func LoggingMiddleware(baseLogger *slog.Logger) func(http.Handler) http.Handler 
 			duration := time.Since(start)
 			requestLogger.Info("Request completed",
 				"status_code", ww.statusCode,
-				"duration_ms", duration.Milliseconds(),
+				"duration_ms", float64(duration.Nanoseconds())/1e6,
 			)
 		})
 	}

@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
+	Cache    CacheConfig    `mapstructure:"cache"`
 	App      AppConfig      `mapstructure:"app"`
 	Logging  LoggingConfig  `mapstructure:"logging"`
 }
@@ -44,6 +45,23 @@ type LoggingConfig struct {
 	Level string `mapstructure:"level"`
 }
 
+type CacheConfig struct {
+	Enabled bool        `mapstructure:"enabled"`
+	Redis   RedisConfig `mapstructure:"redis"`
+	TTL     string      `mapstructure:"ttl"`
+}
+
+type RedisConfig struct {
+	URL          string `mapstructure:"url"`
+	Password     string `mapstructure:"password"`
+	DB           int    `mapstructure:"db"`
+	PoolSize     int    `mapstructure:"pool_size"`
+	MinIdleConns int    `mapstructure:"min_idle_conns"`
+	MaxRetries   int    `mapstructure:"max_retries"`
+	ReadTimeout  string `mapstructure:"read_timeout"`
+	WriteTimeout string `mapstructure:"write_timeout"`
+}
+
 func Load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -54,7 +72,6 @@ func Load() (*Config, error) {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// Set defaults
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.read_timeout", "15s")
 	viper.SetDefault("server.write_timeout", "15s")
@@ -68,6 +85,17 @@ func Load() (*Config, error) {
 	viper.SetDefault("app.short_code_length", 6)
 
 	viper.SetDefault("logging.level", "info")
+
+	viper.SetDefault("cache.enabled", true)
+	viper.SetDefault("cache.redis.url", "redis://localhost:6379")
+	viper.SetDefault("cache.redis.password", "")
+	viper.SetDefault("cache.redis.db", 0)
+	viper.SetDefault("cache.redis.pool_size", 10)
+	viper.SetDefault("cache.redis.min_idle_conns", 5)
+	viper.SetDefault("cache.redis.max_retries", 3)
+	viper.SetDefault("cache.redis.read_timeout", "3s")
+	viper.SetDefault("cache.redis.write_timeout", "3s")
+	viper.SetDefault("cache.ttl", "10m")
 
 	// Read config file if it exists
 	if err := viper.ReadInConfig(); err != nil {

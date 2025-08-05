@@ -60,7 +60,11 @@ docker-build: ## Build Docker image
 
 docker-run: docker-build ## Run the Docker image
 	@echo "$(COLOR_BLUE)Running Docker image...$(COLOR_RESET)"
-	@docker run --rm -p 8080:8080 --name $(APP_NAME)-container $(DOCKER_IMAGE)
+	@docker run --rm -p 8080:8080 \
+		--name $(APP_NAME)-container \
+		--network dove_dove-network \
+		-v $(PWD)/config.docker.yaml:/config.yaml:ro \
+		$(DOCKER_IMAGE)
 
 clean: ## Clean build artifacts
 	@echo "$(COLOR_BLUE)Cleaning build artifacts...$(COLOR_RESET)"

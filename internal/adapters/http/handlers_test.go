@@ -8,18 +8,21 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/sp3dr4/dove/internal/application"
+	"github.com/sp3dr4/dove/internal/infrastructure/cache"
 	"github.com/sp3dr4/dove/internal/infrastructure/memory"
 )
 
 func TestHandlers_HandleShorten_ValidationErrorCasing(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	repo := memory.NewURLRepository(logger)
-	service := application.NewURLService(repo)
+	noopCache := cache.NewNoOpCache()
+	service := application.NewURLService(repo, noopCache, 10*time.Minute, logger)
 	handlers := NewHandlers(service, "http://localhost:8080", repo)
 
 	tests := []struct {

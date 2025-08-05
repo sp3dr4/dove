@@ -6,10 +6,12 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/sp3dr4/dove/internal/infrastructure/cache"
 	"github.com/sp3dr4/dove/internal/infrastructure/memory"
 )
 
@@ -17,7 +19,8 @@ import (
 func TestURLService_ShortCodeGeneration(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	repo := memory.NewURLRepository(logger)
-	service := NewURLService(repo)
+	noopCache := cache.NewNoOpCache()
+	service := NewURLService(repo, noopCache, 10*time.Minute, logger)
 	ctx := context.Background()
 
 	// Test that generated short codes are unique and have correct length
@@ -49,7 +52,8 @@ func TestURLService_ShortCodeGeneration(t *testing.T) {
 func TestURLService_CustomAliasValidation(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	repo := memory.NewURLRepository(logger)
-	service := NewURLService(repo)
+	noopCache := cache.NewNoOpCache()
+	service := NewURLService(repo, noopCache, 10*time.Minute, logger)
 	ctx := context.Background()
 
 	tests := []struct {

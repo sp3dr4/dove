@@ -2,7 +2,10 @@ package fx
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +17,7 @@ import (
 	"github.com/sp3dr4/dove/internal/application"
 	"github.com/sp3dr4/dove/internal/domain"
 	httpFX "github.com/sp3dr4/dove/internal/fx/http"
+	cacheImpl "github.com/sp3dr4/dove/internal/infrastructure/cache"
 )
 
 func TestFXIntegration(t *testing.T) {
@@ -34,6 +38,9 @@ func TestFXIntegration(t *testing.T) {
 				App: config.AppConfig{
 					BaseURL:         "http://localhost:8080",
 					ShortCodeLength: 6,
+				},
+				Cache: config.CacheConfig{
+					Enabled: false, // Disable cache for tests
 				},
 			}, nil
 		}),
@@ -103,7 +110,9 @@ func TestFXModules(t *testing.T) {
 
 			if tt.needsService {
 				options = append(options, fx.Provide(func(repo domain.URLRepository) *application.URLService {
-					return application.NewURLService(repo)
+					logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+					noopCache := cacheImpl.NewNoOpCache()
+					return application.NewURLService(repo, noopCache, 10*time.Minute, logger)
 				}))
 			}
 

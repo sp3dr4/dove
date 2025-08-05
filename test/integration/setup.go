@@ -16,33 +16,39 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
 	postgresContainer "github.com/testcontainers/testcontainers-go/modules/postgres"
+	redisContainer "github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/sp3dr4/dove/internal/application"
 	postgresRepo "github.com/sp3dr4/dove/internal/infrastructure/postgres"
+	redisCache "github.com/sp3dr4/dove/internal/infrastructure/redis"
 )
 
 var (
-	sharedContainer *postgresContainer.PostgresContainer
-	sharedDB        *sqlx.DB
-	containerOnce   sync.Once
-	cleanupOnce     sync.Once
+	sharedPgContainer    *postgresContainer.PostgresContainer
+	sharedRedisContainer *redisContainer.RedisContainer
+	sharedDB             *sqlx.DB
+	sharedRedisClient    *redis.Client
+	containerOnce        sync.Once
+	cleanupOnce          sync.Once
 )
 
 // TestEnvironment holds the test setup
 type TestEnvironment struct {
-	DB      *sqlx.DB
-	Service *application.URLService
+	DB          *sqlx.DB
+	RedisClient *redis.Client
+	Service     *application.URLService
 }
 
-// SetupTestEnvironment creates a PostgreSQL container (shared), runs migrations, and returns a configured URLService
+// SetupTestEnvironment creates PostgreSQL and Redis containers (shared), runs migrations, and returns a configured URLService
 func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 	containerOnce.Do(func() {
 		ctx := context.Background()
 
-		container, err := postgresContainer.Run(ctx,
+		pgContainer, err := postgresContainer.Run(ctx,
 			"postgres:16-alpine",
 			postgresContainer.WithDatabase("dove_test"),
 			postgresContainer.WithUsername("test"),
@@ -55,9 +61,9 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 		if err != nil {
 			t.Fatalf("failed to start postgres container: %v", err)
 		}
-		sharedContainer = container
+		sharedPgContainer = pgContainer
 
-		connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+		connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 		if err != nil {
 			t.Fatalf("failed to get connection string: %v", err)
 		}
@@ -68,20 +74,50 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 		}
 		sharedDB = db
 
-		if err := runMigrations(db.DB); err != nil {
-			t.Fatalf("failed to run migrations: %v", err)
+		if migErr := runMigrations(db.DB); migErr != nil {
+			t.Fatalf("failed to run migrations: %v", migErr)
+		}
+
+		redisC, err := redisContainer.Run(ctx,
+			"redis:7-alpine",
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("Ready to accept connections").
+					WithStartupTimeout(30*time.Second)),
+		)
+		if err != nil {
+			t.Fatalf("failed to start redis container: %v", err)
+		}
+		sharedRedisContainer = redisC
+
+		redisConnStr, err := redisC.ConnectionString(ctx)
+		if err != nil {
+			t.Fatalf("failed to get redis connection string: %v", err)
+		}
+
+		redisOpt, err := redis.ParseURL(redisConnStr)
+		if err != nil {
+			t.Fatalf("failed to parse redis URL: %v", err)
+		}
+
+		sharedRedisClient = redis.NewClient(redisOpt)
+
+		if err := sharedRedisClient.Ping(ctx).Err(); err != nil {
+			t.Fatalf("failed to ping redis: %v", err)
 		}
 	})
 
 	cleanDatabase(t, sharedDB)
+	cleanRedisCache(t, sharedRedisClient)
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	repo := postgresRepo.NewURLRepository(sharedDB, logger)
-	service := application.NewURLService(repo)
+	cache := redisCache.NewRedisCache(sharedRedisClient, logger)
+	service := application.NewURLService(repo, cache, 10*time.Minute, logger)
 
 	return &TestEnvironment{
-		DB:      sharedDB,
-		Service: service,
+		DB:          sharedDB,
+		RedisClient: sharedRedisClient,
+		Service:     service,
 	}
 }
 
@@ -92,8 +128,14 @@ func CleanupSharedResources() {
 		if sharedDB != nil {
 			_ = sharedDB.Close()
 		}
-		if sharedContainer != nil {
-			_ = sharedContainer.Terminate(ctx)
+		if sharedRedisClient != nil {
+			_ = sharedRedisClient.Close()
+		}
+		if sharedPgContainer != nil {
+			_ = sharedPgContainer.Terminate(ctx)
+		}
+		if sharedRedisContainer != nil {
+			_ = sharedRedisContainer.Terminate(ctx)
 		}
 	})
 }
@@ -131,6 +173,14 @@ func runMigrations(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// cleanRedisCache flushes all Redis keys to ensure test isolation
+func cleanRedisCache(t *testing.T, client *redis.Client) {
+	ctx := context.Background()
+	if err := client.FlushDB(ctx).Err(); err != nil {
+		t.Fatalf("failed to flush Redis: %v", err)
+	}
 }
 
 // TestMain handles setup and teardown for the entire test suite
