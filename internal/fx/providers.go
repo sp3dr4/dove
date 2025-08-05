@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
@@ -16,12 +17,15 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 
 	"github.com/sp3dr4/dove/config"
 	"github.com/sp3dr4/dove/internal/domain"
+	cacheImpl "github.com/sp3dr4/dove/internal/infrastructure/cache"
 	memoryRepo "github.com/sp3dr4/dove/internal/infrastructure/memory"
 	postgresRepo "github.com/sp3dr4/dove/internal/infrastructure/postgres"
+	redisCache "github.com/sp3dr4/dove/internal/infrastructure/redis"
 	sqliteRepo "github.com/sp3dr4/dove/internal/infrastructure/sqlite"
 )
 
@@ -162,4 +166,104 @@ func RegisterRepositoryHooks(lc fx.Lifecycle, params RepositoryParams) {
 			return nil
 		},
 	})
+}
+
+// ProvideRedisClient creates a Redis client
+func ProvideRedisClient(cfg *config.Config, logger *slog.Logger) (*redis.Client, error) {
+	if !cfg.Cache.Enabled {
+		return nil, nil
+	}
+
+	opt, err := redis.ParseURL(cfg.Cache.Redis.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Redis URL: %w", err)
+	}
+
+	// Override with config values
+	if cfg.Cache.Redis.Password != "" {
+		opt.Password = cfg.Cache.Redis.Password
+	}
+	opt.DB = cfg.Cache.Redis.DB
+	opt.PoolSize = cfg.Cache.Redis.PoolSize
+	opt.MinIdleConns = cfg.Cache.Redis.MinIdleConns
+	opt.MaxRetries = cfg.Cache.Redis.MaxRetries
+
+	if cfg.Cache.Redis.ReadTimeout != "" {
+		readTimeout, err := time.ParseDuration(cfg.Cache.Redis.ReadTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid read timeout: %w", err)
+		}
+		opt.ReadTimeout = readTimeout
+	}
+
+	if cfg.Cache.Redis.WriteTimeout != "" {
+		writeTimeout, err := time.ParseDuration(cfg.Cache.Redis.WriteTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid write timeout: %w", err)
+		}
+		opt.WriteTimeout = writeTimeout
+	}
+
+	client := redis.NewClient(opt)
+
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := client.Ping(ctx).Err(); err != nil {
+		logger.Warn("Failed to connect to Redis, caching will be disabled", "error", err)
+		return nil, nil
+	}
+
+	logger.Info("Connected to Redis", "url", cfg.Cache.Redis.URL)
+	return client, nil
+}
+
+// ProvideCache creates the appropriate cache implementation
+func ProvideCache(cfg *config.Config, client *redis.Client, logger *slog.Logger) domain.Cache {
+	if !cfg.Cache.Enabled || client == nil {
+		logger.Info("Caching disabled")
+		return cacheImpl.NewNoOpCache()
+	}
+
+	logger.Info("Using Redis cache", "ttl", cfg.Cache.TTL)
+	return redisCache.NewRedisCache(client, logger)
+}
+
+// ProvideCacheTTL provides the cache TTL duration
+func ProvideCacheTTL(cfg *config.Config) (time.Duration, error) {
+	if cfg.Cache.TTL == "" {
+		return 10 * time.Minute, nil // Default to 10 minutes
+	}
+
+	ttl, err := time.ParseDuration(cfg.Cache.TTL)
+	if err != nil {
+		return 0, fmt.Errorf("invalid cache TTL: %w", err)
+	}
+
+	return ttl, nil
+}
+
+// CacheParams holds the parameters needed for cache lifecycle management
+type CacheParams struct {
+	fx.In
+
+	Client *redis.Client `optional:"true"`
+	Logger *slog.Logger
+}
+
+// RegisterCacheHooks registers cache lifecycle hooks with FX
+func RegisterCacheHooks(lc fx.Lifecycle, params CacheParams) {
+	if params.Client != nil {
+		lc.Append(fx.Hook{
+			OnStop: func(ctx context.Context) error {
+				if err := params.Client.Close(); err != nil {
+					params.Logger.Error("Failed to close Redis connection", "error", err)
+					return err
+				}
+				params.Logger.Info("Redis connection closed successfully")
+				return nil
+			},
+		})
+	}
 }

@@ -2,9 +2,11 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -237,4 +239,123 @@ func TestURLService_ConcurrentAccess_Integration(t *testing.T) {
 
 	expectedClicks := numGoroutines * clicksPerGoroutine
 	assert.Equal(t, expectedClicks, url.Clicks)
+}
+
+func TestURLService_CacheBehavior_Integration(t *testing.T) {
+	env := SetupTestEnvironment(t)
+
+	ctx := context.Background()
+	service := env.Service
+
+	req := application.CreateURLRequest{
+		URL:         "https://example.com/cache-test",
+		CustomAlias: "cachetest",
+	}
+	created, err := service.CreateShortURL(ctx, req, testBaseURL)
+	require.NoError(t, err)
+
+	// First get - this should cache the URL
+	url1, err := service.GetURL(ctx, "cachetest")
+	require.NoError(t, err)
+	assert.Equal(t, created.OriginalURL, url1.OriginalURL)
+
+	// Verify it's in cache by checking Redis directly
+	cachedData, err := env.RedisClient.Get(ctx, "url:cachetest").Result()
+	require.NoError(t, err)
+	assert.NotEmpty(t, cachedData)
+
+	// Update the URL directly in database (bypassing cache)
+	_, err = env.DB.Exec("UPDATE urls SET clicks = clicks + 10 WHERE short_code = $1", "cachetest")
+	require.NoError(t, err)
+
+	// Second get - should return cached version (still 0 clicks)
+	url2, err := service.GetURL(ctx, "cachetest")
+	require.NoError(t, err)
+	assert.Equal(t, 0, url2.Clicks)
+
+	// Clear cache manually
+	err = env.RedisClient.Del(ctx, "url:cachetest").Err()
+	require.NoError(t, err)
+
+	// Third get - should fetch from DB and see updated clicks
+	url3, err := service.GetURL(ctx, "cachetest")
+	require.NoError(t, err)
+	assert.Equal(t, 10, url3.Clicks)
+
+	// Verify it's cached again
+	cachedData2, err := env.RedisClient.Get(ctx, "url:cachetest").Result()
+	require.NoError(t, err)
+	assert.NotEmpty(t, cachedData2)
+}
+
+func TestURLService_CacheInvalidation_Integration(t *testing.T) {
+	env := SetupTestEnvironment(t)
+
+	ctx := context.Background()
+	service := env.Service
+
+	req := application.CreateURLRequest{
+		URL:         "https://example.com/invalidation",
+		CustomAlias: "invalidtest",
+	}
+	_, err := service.CreateShortURL(ctx, req, testBaseURL)
+	require.NoError(t, err)
+
+	// Get URL to populate cache
+	url1, err := service.GetURL(ctx, "invalidtest")
+	require.NoError(t, err)
+	assert.Equal(t, 0, url1.Clicks)
+
+	// Verify it's cached
+	cachedData, err := env.RedisClient.Get(ctx, "url:invalidtest").Result()
+	require.NoError(t, err)
+	assert.NotEmpty(t, cachedData)
+
+	// Increment clicks (should update cache)
+	_, err = service.IncrementClicks(ctx, "invalidtest")
+	require.NoError(t, err)
+
+	// Get URL again - should see updated clicks from cache
+	url2, err := service.GetURL(ctx, "invalidtest")
+	require.NoError(t, err)
+	assert.Equal(t, 1, url2.Clicks)
+
+	// Verify cache was updated by checking raw data
+	cachedData2, err := env.RedisClient.Get(ctx, "url:invalidtest").Result()
+	require.NoError(t, err)
+
+	// Parse JSON to verify clicks were updated
+	var cachedURL domain.URL
+	err = json.Unmarshal([]byte(cachedData2), &cachedURL)
+	require.NoError(t, err)
+	assert.Equal(t, 1, cachedURL.Clicks)
+}
+
+func TestURLService_RedisCacheMiss_Integration(t *testing.T) {
+	env := SetupTestEnvironment(t)
+
+	ctx := context.Background()
+	service := env.Service
+
+	// Create a URL directly in DB (bypassing service and cache)
+	_, err := env.DB.Exec(`
+		INSERT INTO urls (short_code, original_url, clicks, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())`,
+		"directdb", "https://example.com/direct", 5)
+	require.NoError(t, err)
+
+	// Verify it's not in cache
+	err = env.RedisClient.Get(ctx, "url:directdb").Err()
+	assert.Equal(t, redis.Nil, err)
+
+	// Get URL through service - should fetch from DB and cache it
+	url, err := service.GetURL(ctx, "directdb")
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/direct", url.OriginalURL)
+	assert.Equal(t, 5, url.Clicks)
+
+	// Verify it's now cached
+	cachedData, err := env.RedisClient.Get(ctx, "url:directdb").Result()
+	require.NoError(t, err)
+	assert.NotEmpty(t, cachedData)
 }

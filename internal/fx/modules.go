@@ -16,6 +16,9 @@ var ConfigModule = fx.Module("config",
 var InfrastructureModule = fx.Module("infrastructure",
 	fx.Provide(ProvideLogger),
 	fx.Provide(ProvideRepository),
+	fx.Provide(ProvideRedisClient),
+	fx.Provide(ProvideCache),
+	fx.Provide(ProvideCacheTTL),
 )
 
 // ApplicationModule provides application service dependencies
@@ -26,6 +29,7 @@ var ApplicationModule = fx.Module("application",
 // CoreLifecycleModule provides core lifecycle management (shared by all entrypoints)
 var CoreLifecycleModule = fx.Module("core-lifecycle",
 	fx.Invoke(RegisterRepositoryHooks),
+	fx.Invoke(RegisterCacheHooks),
 )
 
 // CoreModules combines the core modules shared by all entrypoints

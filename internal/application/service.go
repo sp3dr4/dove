@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -11,13 +12,19 @@ import (
 
 type URLService struct {
 	repo     domain.URLRepository
+	cache    domain.Cache
+	cacheTTL time.Duration
 	validate *validator.Validate
+	logger   *slog.Logger
 }
 
-func NewURLService(repo domain.URLRepository) *URLService {
+func NewURLService(repo domain.URLRepository, cache domain.Cache, cacheTTL time.Duration, logger *slog.Logger) *URLService {
 	return &URLService{
 		repo:     repo,
+		cache:    cache,
+		cacheTTL: cacheTTL,
 		validate: validator.New(),
+		logger:   logger,
 	}
 }
 
@@ -64,6 +71,10 @@ func (s *URLService) CreateShortURL(ctx context.Context, req CreateURLRequest, b
 		return nil, err
 	}
 
+	if err := s.cache.Set(ctx, createdURL, s.cacheTTL); err != nil {
+		s.logger.Warn("Failed to cache new URL", "short_code", createdURL.ShortCode, "error", err)
+	}
+
 	return &URLResponse{
 		ID:          createdURL.ID,
 		ShortURL:    baseURL + "/" + shortCode,
@@ -76,11 +87,41 @@ func (s *URLService) CreateShortURL(ctx context.Context, req CreateURLRequest, b
 }
 
 func (s *URLService) GetURL(ctx context.Context, shortCode string) (*domain.URL, error) {
-	return s.repo.FindByShortCode(ctx, shortCode)
+	cachedURL, err := s.cache.Get(ctx, shortCode)
+	if err != nil {
+		s.logger.Warn("Cache error during get", "short_code", shortCode, "error", err)
+	}
+
+	// Cache hit
+	if cachedURL != nil {
+		s.logger.Debug("Cache hit", "short_code", shortCode)
+		return cachedURL, nil
+	}
+
+	// Cache miss
+	url, err := s.repo.FindByShortCode(ctx, shortCode)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.cache.Set(ctx, url, s.cacheTTL); err != nil {
+		s.logger.Warn("Failed to cache URL", "short_code", shortCode, "error", err)
+	}
+
+	return url, nil
 }
 
 func (s *URLService) IncrementClicks(ctx context.Context, shortCode string) (*domain.URL, error) {
-	return s.repo.IncrementClicks(ctx, shortCode)
+	url, err := s.repo.IncrementClicks(ctx, shortCode)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.cache.Set(ctx, url, s.cacheTTL); err != nil {
+		s.logger.Warn("Failed to update cache after incrementing clicks", "short_code", shortCode, "error", err)
+	}
+
+	return url, nil
 }
 
 func generateShortCode() string {

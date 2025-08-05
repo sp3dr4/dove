@@ -11,6 +11,22 @@ database:
   postgres:
     url: "postgres://dove:dove@localhost:5432/dove?sslmode=disable"
 
+cache:
+  enabled: true
+  redis:
+    url: "redis://localhost:6379"
+    password: ""
+    db: 0
+    pool_size: 10
+    min_idle_conns: 5
+    max_retries: 3
+    read_timeout: "3s"
+    write_timeout: "3s"
+  ttl: "10m" # Cache TTL for URL entries
+
 app:
   base_url: "http://localhost:8080"
   short_code_length: 6
+
+logging:
+  level: "debug"
