@@ -7,25 +7,36 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	httpswagger "github.com/swaggo/http-swagger"
+
+	"github.com/sp3dr4/dove/config"
+	"github.com/sp3dr4/dove/internal/pkg/metrics"
 )
 
-func NewRouter(handlers *Handlers, logger *slog.Logger) chi.Router {
+func NewRouter(handlers *Handlers, logger *slog.Logger, cfg *config.Config, metricsRegistry metrics.Registry) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(LoggingMiddleware(logger))
+	r.Use(metrics.PrometheusMiddleware(metricsRegistry))
 	r.Use(middleware.Recoverer)
 
 	r.Get("/health", handlers.HandleHealth)
 	r.Get("/ready", handlers.HandleReady)
+
+	if cfg.Metrics.Enabled {
+		r.Handle(cfg.Metrics.Path, metricsRegistry.GetHandler())
+	}
+
 	r.Get("/swagger/*", httpswagger.Handler(
 		httpswagger.URL("http://localhost:8080/swagger/doc.json"),
 	))
 	r.Get("/redoc", handleRedoc)
 
 	r.Post("/shorten", handlers.HandleShorten)
+
 	r.Get("/{shortCode}", handlers.HandleRedirect)
+	r.Head("/{shortCode}", handlers.HandleRedirect)
 
 	return r
 }

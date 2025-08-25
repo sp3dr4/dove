@@ -112,15 +112,23 @@ func (h *Handlers) HandleShorten(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, r.Context(), http.StatusCreated, response)
 }
 
-// HandleRedirect handles the redirect endpoint.
+// HandleRedirect handles the redirect endpoint for both GET and HEAD methods.
 //
 //	@Summary		Redirect to original URL
-//	@Description	Redirect to the original URL using the short code
+//	@Description	Redirect to the original URL using the short code. GET requests increment click count and redirect, HEAD requests only check existence without incrementing clicks.
 //	@Tags			urls
 //	@Param			shortCode	path	string	true	"Short code"
 //	@Success		301			"Redirect to original URL"
 //	@Failure		404			{object}	ErrorResponse	"Short URL not found"
 //	@Router			/{shortCode} [get]
+//
+//	@Summary		Check short URL existence
+//	@Description	Check if a short URL exists without incrementing click count or following the redirect. Returns the same redirect headers as GET but without response body.
+//	@Tags			urls
+//	@Param			shortCode	path	string	true	"Short code"
+//	@Success		301			"Short URL exists and would redirect"
+//	@Failure		404			{object}	ErrorResponse	"Short URL not found"
+//	@Router			/{shortCode} [head]
 func (h *Handlers) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	shortCode := chi.URLParam(r, "shortCode")
 
@@ -135,14 +143,22 @@ func (h *Handlers) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedURL, err := h.service.IncrementClicks(r.Context(), shortCode)
-	if err != nil {
-		logging.FromContext(r.Context()).Error("Failed to increment clicks", "error", err)
-		// Continue with redirect even if click increment fails
-		logging.FromContext(r.Context()).Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", url.Clicks)
+	// For HEAD requests, don't increment clicks (HEAD is typically used for checking existence)
+	// For GET requests, increment clicks as normal
+	if r.Method == http.MethodGet {
+		updatedURL, err := h.service.IncrementClicks(r.Context(), shortCode)
+		if err != nil {
+			logging.FromContext(r.Context()).Error("Failed to increment clicks", "error", err)
+			// Continue with redirect even if click increment fails
+			logging.FromContext(r.Context()).Info("Redirecting", "method", r.Method, "short_code", shortCode, "original_url", url.OriginalURL, "clicks", url.Clicks)
+		} else {
+			logging.FromContext(r.Context()).Info("Redirecting", "method", r.Method, "short_code", shortCode, "original_url", url.OriginalURL, "clicks", updatedURL.Clicks)
+		}
 	} else {
-		logging.FromContext(r.Context()).Info("Redirecting", "short_code", shortCode, "original_url", url.OriginalURL, "clicks", updatedURL.Clicks)
+		// HEAD request - just log without incrementing clicks
+		logging.FromContext(r.Context()).Info("Head check", "method", r.Method, "short_code", shortCode, "original_url", url.OriginalURL, "clicks", url.Clicks)
 	}
+
 	http.Redirect(w, r, url.OriginalURL, http.StatusMovedPermanently)
 }
 

@@ -17,19 +17,3 @@ scrape_configs:
           environment: 'development'
     metrics_path: '/metrics'
     scrape_interval: 10s
-
-  # Scrape Redis exporter (if added in future)
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
-        labels:
-          service: 'redis'
-          environment: 'development'
-
-  # Scrape PostgreSQL exporter (if added in future)
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres:5432']
-        labels:
-          service: 'postgres'
-          environment: 'development'

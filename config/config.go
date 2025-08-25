@@ -13,6 +13,7 @@ type Config struct {
 	Cache    CacheConfig    `mapstructure:"cache"`
 	App      AppConfig      `mapstructure:"app"`
 	Logging  LoggingConfig  `mapstructure:"logging"`
+	Metrics  MetricsConfig  `mapstructure:"metrics"`
 }
 
 type ServerConfig struct {
@@ -49,6 +50,16 @@ type CacheConfig struct {
 	Enabled bool        `mapstructure:"enabled"`
 	Redis   RedisConfig `mapstructure:"redis"`
 	TTL     string      `mapstructure:"ttl"`
+}
+
+type MetricsConfig struct {
+	Enabled         bool   `mapstructure:"enabled"`
+	Path            string `mapstructure:"path"`
+	Namespace       string `mapstructure:"namespace"`
+	Subsystem       string `mapstructure:"subsystem"`
+	CollectRuntime  bool   `mapstructure:"collect_runtime"`
+	CollectDatabase bool   `mapstructure:"collect_database"`
+	CollectCache    bool   `mapstructure:"collect_cache"`
 }
 
 type RedisConfig struct {
@@ -96,6 +107,14 @@ func Load() (*Config, error) {
 	viper.SetDefault("cache.redis.read_timeout", "3s")
 	viper.SetDefault("cache.redis.write_timeout", "3s")
 	viper.SetDefault("cache.ttl", "10m")
+
+	viper.SetDefault("metrics.enabled", true)
+	viper.SetDefault("metrics.path", "/metrics")
+	viper.SetDefault("metrics.namespace", "dove")
+	viper.SetDefault("metrics.subsystem", "urlshortener")
+	viper.SetDefault("metrics.collect_runtime", true)
+	viper.SetDefault("metrics.collect_database", true)
+	viper.SetDefault("metrics.collect_cache", true)
 
 	// Read config file if it exists
 	if err := viper.ReadInConfig(); err != nil {

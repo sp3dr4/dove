@@ -57,8 +57,15 @@ info:
 paths:
   /{shortCode}:
     get:
-      description: Redirect to the original URL using the short code
+      description: |-
+        Redirect to the original URL using the short code. GET requests increment click count and redirect, HEAD requests only check existence without incrementing clicks.
+        Check if a short URL exists without incrementing click count or following the redirect. Returns the same redirect headers as GET but without response body.
       parameters:
+      - description: Short code
+        in: path
+        name: shortCode
+        required: true
+        type: string
       - description: Short code
         in: path
         name: shortCode
@@ -66,13 +73,40 @@ paths:
         type: string
       responses:
         "301":
-          description: Redirect to original URL
+          description: Short URL exists and would redirect
         "404":
           description: Short URL not found
           schema:
             $ref: '#/definitions/internal_adapters_http.ErrorResponse'
-      summary: Redirect to original URL
+      summary: Check short URL existence
       tags:
+      - urls
+      - urls
+    head:
+      description: |-
+        Redirect to the original URL using the short code. GET requests increment click count and redirect, HEAD requests only check existence without incrementing clicks.
+        Check if a short URL exists without incrementing click count or following the redirect. Returns the same redirect headers as GET but without response body.
+      parameters:
+      - description: Short code
+        in: path
+        name: shortCode
+        required: true
+        type: string
+      - description: Short code
+        in: path
+        name: shortCode
+        required: true
+        type: string
+      responses:
+        "301":
+          description: Short URL exists and would redirect
+        "404":
+          description: Short URL not found
+          schema:
+            $ref: '#/definitions/internal_adapters_http.ErrorResponse'
+      summary: Check short URL existence
+      tags:
+      - urls
       - urls
   /health:
     get:
