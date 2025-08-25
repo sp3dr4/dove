@@ -27,6 +27,7 @@ import (
 	postgresRepo "github.com/sp3dr4/dove/internal/infrastructure/postgres"
 	redisCache "github.com/sp3dr4/dove/internal/infrastructure/redis"
 	sqliteRepo "github.com/sp3dr4/dove/internal/infrastructure/sqlite"
+	"github.com/sp3dr4/dove/internal/pkg/metrics"
 )
 
 // ProvideLogger creates and configures the application logger
@@ -266,4 +267,25 @@ func RegisterCacheHooks(lc fx.Lifecycle, params CacheParams) {
 			},
 		})
 	}
+}
+
+// ProvideMetricsRegistry creates the appropriate metrics registry based on configuration
+func ProvideMetricsRegistry(cfg *config.Config, logger *slog.Logger) (metrics.Registry, error) {
+	if !cfg.Metrics.Enabled {
+		logger.Info("Metrics collection disabled")
+		return metrics.NewNoOpRegistry(), nil
+	}
+
+	logger.Info("Enabling Prometheus metrics",
+		"path", cfg.Metrics.Path,
+		"namespace", cfg.Metrics.Namespace,
+		"subsystem", cfg.Metrics.Subsystem,
+	)
+
+	registry, err := metrics.NewPrometheusRegistry(cfg.Metrics)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Prometheus registry: %w", err)
+	}
+
+	return registry, nil
 }

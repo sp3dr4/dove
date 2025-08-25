@@ -30,3 +30,12 @@ app:
 
 logging:
   level: "debug"
+
+metrics:
+  enabled: true
+  path: "/metrics"
+  namespace: "dove"
+  subsystem: "urlshortener"
+  collect_runtime: true
+  collect_database: true
+  collect_cache: true

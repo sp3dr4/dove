@@ -26,6 +26,11 @@ var ApplicationModule = fx.Module("application",
 	fx.Provide(application.NewURLService),
 )
 
+// MetricsModule provides metrics-related dependencies
+var MetricsModule = fx.Module("metrics",
+	fx.Provide(ProvideMetricsRegistry),
+)
+
 // CoreLifecycleModule provides core lifecycle management (shared by all entrypoints)
 var CoreLifecycleModule = fx.Module("core-lifecycle",
 	fx.Invoke(RegisterRepositoryHooks),
@@ -37,5 +42,6 @@ var CoreModules = fx.Options(
 	ConfigModule,
 	InfrastructureModule,
 	ApplicationModule,
+	MetricsModule,
 	CoreLifecycleModule,
 )
